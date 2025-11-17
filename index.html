@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>English Pronunciation Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+<!-- NEW_FEATURE: Added a style block for custom animations that complement Tailwind CSS. -->
+<style>
+  /* A keyframe animation to create a pulsing glow effect, used for high scores. */
+  @keyframes glow {
+    0% { box-shadow: 0 0 5px #34d399, 0 0 10px #34d399, 0 0 15px #34d399; }
+    50% { box-shadow: 0 0 20px #34d399, 0 0 30px #34d399, 0 0 40px #34d399; }
+    100% { box-shadow: 0 0 5px #34d399, 0 0 10px #34d399, 0 0 15px #34d399; }
+  }
+  /* A class to apply the glow animation to an element. */
+  .high-score-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+</style>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

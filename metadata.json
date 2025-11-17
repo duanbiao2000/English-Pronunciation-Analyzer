@@ -1,0 +1,7 @@
+{
+  "name": "English Pronunciation Analyzer",
+  "description": "An application to help users improve their English pronunciation. Users can speak into their microphone, and the app provides real-time transcription, pronunciation analysis, and corrective feedback using the Gemini API.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
