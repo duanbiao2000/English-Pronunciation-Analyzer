@@ -67,7 +67,7 @@ const RETRY_DELAY_MS = 1500;
 
 
 export default function App() {
-  const isApiKeyConfigured = !!import.meta.env.VITE_API_KEY;
+  const isApiKeyConfigured = !!process.env.API_KEY;
 
   const [appState, setAppState] = useState<'idle' | 'recording' | 'confirming' | 'analyzing' | 'results' | 'levelComplete'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +126,6 @@ export default function App() {
     setUserTranscription('');
     setAnalysisResult(null);
     setError(null);
-    setAttemptCount(0);
     // NEW_FEATURE: Reset the retry counter on a full state reset.
     setRetryCount(0);
 
@@ -185,7 +184,7 @@ export default function App() {
       try {
         setRetryCount(attempt); // Update UI to show current attempt
 
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
         
         const analysisResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -277,7 +276,7 @@ export default function App() {
         throw new Error("Audio contexts failed to initialize.");
       }
 
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -342,6 +341,7 @@ export default function App() {
     } else {
       setCurrentPhraseIndex(nextIndex);
       resetState();
+      setAttemptCount(0);
       setAppState('idle');
     }
   };
@@ -354,6 +354,7 @@ export default function App() {
     
     setDifficulty(nextDifficulty);
     resetState(true);
+    setAttemptCount(0);
     setAppState('idle');
   };
 
@@ -399,6 +400,7 @@ export default function App() {
             onDifficultyChange={(newDifficulty) => {
                 setDifficulty(newDifficulty);
                 resetState(true);
+                setAttemptCount(0);
             }}
             disabled={appState !== 'idle'}
         />
@@ -476,6 +478,7 @@ export default function App() {
              <div className="flex items-center space-x-4">
                 <Button onClick={() => {
                     resetState(true);
+                    setAttemptCount(0);
                     setAppState('idle');
                 }} variant="secondary" size="lg">
                     Replay Level
