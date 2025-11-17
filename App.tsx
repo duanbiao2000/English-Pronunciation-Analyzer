@@ -17,6 +17,8 @@ import { playSuccessSound } from './utils/sfx';
 import { PHRASE_LIBRARIES, Difficulty } from './data/phrases';
 import { DifficultySelector } from './components/DifficultySelector';
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
+// REFACTOR: Import the new reusable Button component.
+import { Button } from './components/Button';
 
 
 const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh') => {
@@ -329,19 +331,7 @@ export default function App() {
     setAppState('idle');
   };
 
-  const FooterButton: React.FC<{onClick: () => void; children: React.ReactNode; primary?: boolean;}> = ({ onClick, children, primary = false }) => (
-    <button
-      onClick={onClick}
-      className={`px-8 py-4 rounded-full font-semibold text-white transition-all duration-300 ease-in-out shadow-lg focus:outline-none focus:ring-4 focus:ring-opacity-50 ${
-        primary
-          ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-400 text-lg'
-          : 'bg-gray-700 hover:bg-gray-600 focus:ring-gray-500'
-      }`}
-    >
-      {children}
-    </button>
-  );
-
+  // REFACTOR: The FooterButton component has been removed and replaced by the generic Button component.
   if (!isApiKeyConfigured) {
     return <ApiKeyErrorScreen />;
   }
@@ -408,37 +398,38 @@ export default function App() {
         <footer className="w-full flex justify-center py-6 sticky bottom-0 bg-gray-900/80 backdrop-blur-sm">
           {appState === 'idle' && <RecordButton isRecording={false} onClick={startRecording} />}
           {appState === 'recording' && <RecordButton isRecording={true} onClick={stopRecording} />}
+          {/* REFACTOR: All buttons now use the new, standardized Button component for consistency and maintainability. */}
           {appState === 'confirming' && (
             <div className="flex items-center space-x-4">
-              <FooterButton onClick={startRecording}>Record Again</FooterButton>
-              <FooterButton onClick={handleAnalyze} primary>Analyze Pronunciation</FooterButton>
+              <Button onClick={startRecording} variant="secondary" size="lg">Record Again</Button>
+              <Button onClick={handleAnalyze} variant="primary" size="lg">Analyze Pronunciation</Button>
             </div>
           )}
           {appState === 'results' && (
              <div className="flex items-center space-x-4">
-                <FooterButton onClick={startRecording}>Try Again</FooterButton>
+                <Button onClick={startRecording} variant="secondary" size="lg">Try Again</Button>
                 {(analysisResult?.score ?? 0) >= 80 ? (
-                    <FooterButton onClick={handleNextStage} primary>
+                    <Button onClick={handleNextStage} variant="primary" size="lg">
                         Next Stage →
-                    </FooterButton>
+                    </Button>
                 ) : attemptCount >= 3 && (
-                    <FooterButton onClick={handleNextStage}>
+                    <Button onClick={handleNextStage} variant="secondary" size="lg">
                         Skip Stage →
-                    </FooterButton>
+                    </Button>
                 )}
              </div>
           )}
           {appState === 'levelComplete' && (
              <div className="flex items-center space-x-4">
-                <FooterButton onClick={() => {
+                <Button onClick={() => {
                     resetState(true);
                     setAppState('idle');
-                }}>
+                }} variant="secondary" size="lg">
                     Replay Level
-                </FooterButton>
-                <FooterButton onClick={handleNextLevel} primary>
+                </Button>
+                <Button onClick={handleNextLevel} variant="primary" size="lg">
                     Next Level →
-                </FooterButton>
+                </Button>
              </div>
           )}
         </footer>

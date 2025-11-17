@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { PHRASE_LIBRARIES, Difficulty } from '../data/phrases';
+// REFACTOR: Import the new reusable Button and cn utility.
+import { Button } from './Button';
 
 interface DifficultySelectorProps {
   currentDifficulty: Difficulty;
@@ -17,23 +19,23 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ currentD
 
   return (
     <div className="flex flex-wrap justify-center items-center p-2 bg-gray-800 rounded-lg space-x-2 my-4">
+      {/* REFACTOR: The button element is replaced with the new reusable Button component. */}
       {difficulties.map((difficulty) => {
         const isActive = currentDifficulty === difficulty;
-        const baseClasses = "px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500";
-        const activeClasses = "bg-blue-600 text-white shadow-md";
-        const inactiveClasses = "bg-gray-700 text-gray-300 hover:bg-gray-600";
-        const disabledClasses = "opacity-50 cursor-not-allowed";
-
         return (
-          <button
+          <Button
             key={difficulty}
             onClick={() => onDifficultyChange(difficulty)}
             disabled={disabled}
-            className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${disabled ? disabledClasses : ''}`}
+            // REFACTOR: Style variations are now handled by the 'variant' prop, making the code cleaner.
+            variant={isActive ? 'primary' : 'secondary'}
+            size="sm"
             aria-pressed={isActive}
+            // REFACTOR: Additional shadow is added for active state for better visual distinction.
+            className={isActive ? 'shadow-md' : ''}
           >
             {PHRASE_LIBRARIES[difficulty].name}
-          </button>
+          </Button>
         );
       })}
     </div>

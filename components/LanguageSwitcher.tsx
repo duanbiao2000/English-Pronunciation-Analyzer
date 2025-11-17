@@ -1,4 +1,7 @@
+
 import React from 'react';
+// REFACTOR: Import the new reusable Button component.
+import { Button } from './Button';
 
 interface LanguageSwitcherProps {
   currentLanguage: 'en' | 'zh';
@@ -12,33 +15,28 @@ interface LanguageSwitcherProps {
  * provided by the Gemini API.
  */
 export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ currentLanguage, onLanguageChange, disabled }) => {
-  // Common classes for both buttons
-  const baseClasses = "px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500";
-  // Classes for the currently selected language button
-  const activeClasses = "bg-blue-600 text-white";
-  // Classes for the non-selected language button
-  const inactiveClasses = "bg-gray-700 text-gray-300 hover:bg-gray-600";
-  // Classes applied when the buttons should be disabled (e.g., during recording)
-  const disabledClasses = "opacity-50 cursor-not-allowed";
-
   return (
     <div className="flex justify-center items-center p-2 bg-gray-800 rounded-lg space-x-2 my-4">
-      <button
+      {/* REFACTOR: The <button> element is replaced with the new reusable Button component. */}
+      <Button
         onClick={() => onLanguageChange('en')}
         disabled={disabled}
-        className={`${baseClasses} ${currentLanguage === 'en' ? activeClasses : inactiveClasses} ${disabled ? disabledClasses : ''}`}
+        // REFACTOR: The button's appearance is now controlled by the `variant` prop, cleaning up the code.
+        variant={currentLanguage === 'en' ? 'primary' : 'secondary'}
+        size="sm"
         aria-pressed={currentLanguage === 'en'}
       >
         English
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={() => onLanguageChange('zh')}
         disabled={disabled}
-        className={`${baseClasses} ${currentLanguage === 'zh' ? activeClasses : inactiveClasses} ${disabled ? disabledClasses : ''}`}
+        variant={currentLanguage === 'zh' ? 'primary' : 'secondary'}
+        size="sm"
         aria-pressed={currentLanguage === 'zh'}
       >
         中文
-      </button>
+      </Button>
     </div>
   );
 };
