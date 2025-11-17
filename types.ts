@@ -29,16 +29,20 @@ export interface IntonationPhrase {
   pattern: string;  // e.g., "Falling" or "Rising"
 }
 
-// BATCH_4: Add type for a connected speech practice item.
 export interface ConnectedSpeechPhrase {
   sentence: string; // e.g., "What~are you doing?"
   feature: string;  // e.g., "Linking R and Flap T"
   naturalSpeech: string; // e.g., "Whaddaya doin'?"
 }
 
+export interface ShadowingPhrase {
+  sentence: string;
+  focus: string;
+}
+
 
 export type Difficulty = 'newbie' | 'apprentice' | 'expert' | 'master' | 'legend';
 
-export type PracticeMode = 'phrase' | 'sound' | 'adaptation';
+export type PracticeMode = 'phrase' | 'sound' | 'adaptation' | 'shadowing';
 
 export type AdaptationDrill = 'minimal_pairs' | 'intonation' | 'connected_speech';

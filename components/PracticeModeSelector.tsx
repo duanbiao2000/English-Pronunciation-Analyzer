@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from './Button';
 import type { PracticeMode } from '../types';
@@ -32,6 +33,15 @@ export const PracticeModeSelector: React.FC<PracticeModeSelectorProps> = ({ curr
         aria-pressed={currentMode === 'sound'}
       >
         Sound Practice
+      </Button>
+       <Button
+        onClick={() => onModeChange('shadowing')}
+        disabled={disabled}
+        variant={currentMode === 'shadowing' ? 'primary' : 'secondary'}
+        size="sm"
+        aria-pressed={currentMode === 'shadowing'}
+      >
+        Shadowing Practice
       </Button>
       <Button
         onClick={() => onModeChange('adaptation')}
