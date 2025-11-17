@@ -16,7 +16,6 @@ import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { playSuccessSound } from './utils/sfx';
 import { PHRASE_LIBRARIES, Difficulty } from './data/phrases';
 import { DifficultySelector } from './components/DifficultySelector';
-// NEW_FEATURE: Import the new error screen for missing API key configuration.
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 
 
@@ -61,7 +60,6 @@ const analysisSchema = {
 
 
 export default function App() {
-  // NEW_FEATURE: Perform a critical check for API key existence at the very top.
   const isApiKeyConfigured = !!process.env.API_KEY;
 
   const [appState, setAppState] = useState<'idle' | 'recording' | 'confirming' | 'analyzing' | 'results' | 'levelComplete'>('idle');
@@ -81,6 +79,7 @@ export default function App() {
   const [attemptCount, setAttemptCount] = useState(0);
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  // PERFORMANCE_OPTIMIZATION: Create persistent AudioContexts to avoid expensive re-initialization on every recording.
   const audioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -88,6 +87,17 @@ export default function App() {
   const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const userTranscriptionRef = useRef('');
   const audioChunksRef = useRef<Float32Array[]>([]);
+
+  // PERFORMANCE_OPTIMIZATION: Initialize AudioContexts only once on component mount.
+  useEffect(() => {
+    audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+    outputAudioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+
+    return () => {
+      audioContextRef.current?.close();
+      outputAudioContextRef.current?.close();
+    };
+  }, []);
 
   useEffect(() => {
     if (appState === 'results' && (analysisResult?.score ?? 0) >= 80) {
@@ -119,6 +129,7 @@ export default function App() {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
     }
+    // PERFORMANCE_OPTIMIZATION: Disconnect nodes but don't close the persistent AudioContext.
     if (scriptProcessorRef.current) {
         scriptProcessorRef.current.disconnect();
         scriptProcessorRef.current = null;
@@ -126,9 +137,6 @@ export default function App() {
     if (mediaStreamSourceRef.current) {
         mediaStreamSourceRef.current.disconnect();
         mediaStreamSourceRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
     }
     if(sessionPromiseRef.current) {
       sessionPromiseRef.current.then(session => {
@@ -174,19 +182,16 @@ export default function App() {
         const result: AnalysisResult = JSON.parse(analysisResponse.text);
         setAnalysisResult(result);
 
-        // NEW_FEATURE: Graceful fallback for TTS. If this fails, the app still shows the analysis.
         if (result.correctedPhrase) {
            try {
              await playCorrectedAudio(ai, result.correctedPhrase);
            } catch (ttsError) {
              console.error("TTS generation failed, but analysis succeeded:", ttsError);
-             // We don't set a user-facing error because the main analysis was successful.
            }
         }
 
     } catch (err: any) {
         console.error("Analysis error:", err);
-        // NEW_FEATURE: A more user-friendly and generic error message.
         setError("Sorry, an error occurred during the analysis. Please check your connection and try again.");
     } finally {
         setAppState('results');
@@ -233,25 +238,34 @@ export default function App() {
     setAppState('recording');
 
     try {
+      // PERFORMANCE_OPTIMIZATION: Resume persistent AudioContexts as per browser policy.
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      if (outputAudioContextRef.current?.state === 'suspended') {
+        await outputAudioContextRef.current.resume();
+      }
+      if (!audioContextRef.current || !outputAudioContextRef.current) {
+        throw new Error("Audio contexts failed to initialize.");
+      }
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      outputAudioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      
       sessionPromiseRef.current = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: { responseModalities: [Modality.AUDIO], inputAudioTranscription: {} },
         callbacks: {
           onopen: () => {
-            if (!audioContextRef.current) {
-              console.error("AudioContext not available in onopen");
+            const currentAudioContext = audioContextRef.current;
+            if (!currentAudioContext || !streamRef.current) {
+              console.error("AudioContext or MediaStream not available in onopen");
               return;
             }
-            mediaStreamSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-            scriptProcessorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+            mediaStreamSourceRef.current = currentAudioContext.createMediaStreamSource(streamRef.current);
+            scriptProcessorRef.current = currentAudioContext.createScriptProcessor(4096, 1, 1);
 
             scriptProcessorRef.current.onaudioprocess = (audioProcessingEvent) => {
               const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
@@ -262,7 +276,7 @@ export default function App() {
             };
 
             mediaStreamSourceRef.current.connect(scriptProcessorRef.current);
-            scriptProcessorRef.current.connect(audioContextRef.current!.destination);
+            scriptProcessorRef.current.connect(currentAudioContext.destination);
           },
           onmessage: async (message: LiveServerMessage) => {
             if (message.serverContent?.inputTranscription) {
@@ -325,7 +339,6 @@ export default function App() {
     </button>
   );
 
-  // NEW_FEATURE: If the API key is not configured, render a dedicated error screen.
   if (!isApiKeyConfigured) {
     return <ApiKeyErrorScreen />;
   }
@@ -401,7 +414,6 @@ export default function App() {
           {appState === 'results' && (
              <div className="flex items-center space-x-4">
                 <FooterButton onClick={startRecording}>Try Again</FooterButton>
-                {/* FIX: Logic for displaying Next/Skip buttons. Skip now triggers after 5 attempts. */}
                 {(analysisResult?.score ?? 0) >= 80 ? (
                     <FooterButton onClick={handleNextStage} primary>
                         Next Stage →

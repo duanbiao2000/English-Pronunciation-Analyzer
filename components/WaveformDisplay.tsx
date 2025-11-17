@@ -1,18 +1,22 @@
-import React, { useRef, useEffect } from 'react';
+
+import React, { useRef, useEffect, useState } from 'react';
 
 interface WaveformDisplayProps {
   audioUrl: string;
   color: string;
 }
 
-// Create a single, shared AudioContext instance.
+// Create a single, shared AudioContext instance for decoding.
 const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
 /**
  * NEW_FEATURE: A component that visualizes audio from a given URL as a waveform on a canvas.
+ * UX_IMPROVEMENT: Now includes loading and error states for better user feedback.
  */
 export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({ audioUrl, color }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!audioUrl || !canvasRef.current) return;
@@ -21,7 +25,8 @@ export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({ audioUrl, colo
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    let animationFrameId: number;
+    // Clear canvas before processing
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const draw = (audioBuffer: AudioBuffer) => {
       const data = audioBuffer.getChannelData(0);
@@ -45,7 +50,6 @@ export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({ audioUrl, colo
           if (datum > max) max = datum;
         }
         
-        // Draw a vertical line from min to max amplitude for this segment
         ctx.moveTo(i, (1 + min) * amp);
         ctx.lineTo(i, (1 + max) * amp);
       }
@@ -53,23 +57,29 @@ export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({ audioUrl, colo
     };
 
     const processAudio = async () => {
+      setIsLoading(true);
+      setError(null);
       try {
         const response = await fetch(audioUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch audio: ${response.statusText}`);
+        }
         const arrayBuffer = await response.arrayBuffer();
-        // Use the shared AudioContext to decode the data
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         
-        // Set canvas dimensions based on parent container
         const parent = canvas.parentElement;
         if(parent) {
             canvas.width = parent.clientWidth;
-            canvas.height = 80; // Fixed height for waveform
+            canvas.height = 80;
         }
         
         draw(audioBuffer);
 
       } catch (e) {
         console.error("Error processing audio for waveform:", e);
+        setError("Could not load waveform");
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -85,12 +95,17 @@ export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({ audioUrl, colo
     }
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
       if(canvas.parentElement) {
          resizeObserver.unobserve(canvas.parentElement);
       }
     };
   }, [audioUrl, color]);
 
-  return <canvas ref={canvasRef} className="w-full h-[80px] bg-gray-900/50 rounded-md" />;
+  return (
+    <div className="w-full h-[80px] bg-gray-900/50 rounded-md relative flex items-center justify-center">
+      {isLoading && <span className="text-gray-400 text-xs">Loading waveform...</span>}
+      {error && <span className="text-red-400 text-xs font-semibold">{error}</span>}
+      <canvas ref={canvasRef} className="w-full h-full absolute top-0 left-0" />
+    </div>
+  );
 };
