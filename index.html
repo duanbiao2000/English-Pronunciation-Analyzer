@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -28,6 +27,56 @@
   /* A class to apply the glow animation to an element. */
   .high-score-glow {
     animation: glow 2s ease-in-out infinite;
+  }
+  
+  /* NEW_FEATURE: A keyframe animation for a perfect score (100) with a golden glow. */
+  @keyframes perfect-glow {
+    0% { box-shadow: 0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15; }
+    50% { box-shadow: 0 0 25px #facc15, 0 0 40px #facc15, 0 0 55px #facc15; }
+    100% { box-shadow: 0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15; }
+  }
+  /* A class to apply the perfect score glow animation. */
+  .perfect-score-glow {
+    animation: perfect-glow 1.5s ease-in-out infinite;
+  }
+
+  /* NEW_FEATURE: Animations for the Level Cleared! screen */
+  @keyframes fade-in-and-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in-and-up {
+    animation: fade-in-and-up 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+
+  @keyframes monster-intro {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .animate-monster-intro {
+    animation: monster-intro 3s ease-in-out infinite, fade-in-and-up 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+
+  @keyframes monster-defeat-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+  }
+  @keyframes monster-defeat-fade-out {
+    from { opacity: 1; transform: scale(1); filter: brightness(1); }
+    to { opacity: 0; transform: scale(0.8); filter: brightness(2); }
+  }
+
+  .animate-monster-defeat {
+    animation: monster-defeat-shake 0.5s linear, monster-defeat-fade-out 0.5s 0.5s ease-in forwards;
+  }
+  
+  @keyframes monster-explode {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; filter: blur(10px); }
+  }
+  .animate-monster-explode {
+    animation: monster-defeat-shake 0.5s linear, monster-explode 0.5s 0.5s cubic-bezier(0.7, 0, 0.84, 0) forwards;
   }
 </style>
 </head>

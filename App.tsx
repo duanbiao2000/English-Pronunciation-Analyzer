@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
 import { Header } from './components/Header';
@@ -13,12 +12,14 @@ import { WaveformComparison } from './components/WaveformComparison';
 import { encode, decode, decodeAudioData, createBlob, createWavBlob, audioBufferToWavBlob } from './utils/audio';
 import type { AnalysisResult } from './types';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { playSuccessSound } from './utils/sfx';
+// NEW_FEATURE: Import the special sound effect for a perfect score.
+import { playSuccessSound, playPerfectScoreSound } from './utils/sfx';
 import { PHRASE_LIBRARIES, Difficulty } from './data/phrases';
 import { DifficultySelector } from './components/DifficultySelector';
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
-// REFACTOR: Import the new reusable Button component.
 import { Button } from './components/Button';
+// NEW_FEATURE: Import the component for level completion animations.
+import { LevelCompleteAnimation } from './components/LevelCompleteAnimation';
 
 
 const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh' | 'ja') => {
@@ -91,7 +92,6 @@ export default function App() {
   const [attemptCount, setAttemptCount] = useState(0);
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
-  // PERFORMANCE_OPTIMIZATION: Create persistent AudioContexts to avoid expensive re-initialization on every recording.
   const audioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -100,7 +100,6 @@ export default function App() {
   const userTranscriptionRef = useRef('');
   const audioChunksRef = useRef<Float32Array[]>([]);
 
-  // PERFORMANCE_OPTIMIZATION: Initialize AudioContexts only once on component mount.
   useEffect(() => {
     audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
     outputAudioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -112,8 +111,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (appState === 'results' && (analysisResult?.score ?? 0) >= 80) {
-      playSuccessSound();
+    // NEW_FEATURE: Play a special sound for a perfect score, or the standard success sound for high scores.
+    if (appState === 'results' && analysisResult?.score !== null) {
+      if (analysisResult.score === 100) {
+        playPerfectScoreSound();
+      } else if (analysisResult.score >= 80) {
+        playSuccessSound();
+      }
     }
   }, [analysisResult, appState]);
 
@@ -129,8 +133,6 @@ export default function App() {
     setUserTranscription('');
     setAnalysisResult(null);
     setError(null);
-    // FIX: Removed `setAttemptCount(0)` from here to prevent it from resetting on every "Try Again".
-    // It will now be reset manually only when a new stage/level starts.
 
     if (isNewLevel) {
       setCurrentPhraseIndex(0);
@@ -142,7 +144,6 @@ export default function App() {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
     }
-    // PERFORMANCE_OPTIMIZATION: Disconnect nodes but don't close the persistent AudioContext.
     if (scriptProcessorRef.current) {
         scriptProcessorRef.current.disconnect();
         scriptProcessorRef.current = null;
@@ -251,7 +252,6 @@ export default function App() {
     setAppState('recording');
 
     try {
-      // PERFORMANCE_OPTIMIZATION: Resume persistent AudioContexts as per browser policy.
       if (audioContextRef.current?.state === 'suspended') {
         await audioContextRef.current.resume();
       }
@@ -327,7 +327,7 @@ export default function App() {
     } else {
       setCurrentPhraseIndex(nextIndex);
       resetState();
-      setAttemptCount(0); // FIX: Manually reset attempt count here.
+      setAttemptCount(0);
       setAppState('idle');
     }
   };
@@ -340,11 +340,16 @@ export default function App() {
     
     setDifficulty(nextDifficulty);
     resetState(true);
-    setAttemptCount(0); // FIX: Manually reset attempt count here.
+    setAttemptCount(0);
     setAppState('idle');
   };
 
-  // REFACTOR: The FooterButton component has been removed and replaced by the generic Button component.
+  const handleReplayLevel = () => {
+      resetState(true);
+      setAttemptCount(0);
+      setAppState('idle');
+  };
+
   if (!isApiKeyConfigured) {
     return <ApiKeyErrorScreen />;
   }
@@ -359,9 +364,9 @@ export default function App() {
             onDifficultyChange={(newDifficulty) => {
                 setDifficulty(newDifficulty);
                 resetState(true);
-                setAttemptCount(0); // FIX: Manually reset attempt count here.
+                setAttemptCount(0);
             }}
-            disabled={appState !== 'idle'}
+            disabled={appState !== 'idle' && appState !== 'levelComplete'}
         />
 
         <LanguageSwitcher
@@ -370,7 +375,7 @@ export default function App() {
           disabled={appState === 'recording' || appState === 'analyzing'}
         />
 
-        <main className="flex-grow flex flex-col items-center space-y-8 mt-4">
+        <main className="flex-grow flex flex-col items-center justify-center space-y-8 mt-4">
           {appState !== 'levelComplete' ? (
             <>
               <PronunciationCard
@@ -387,6 +392,8 @@ export default function App() {
                   <ScoreDisplay
                     score={analysisResult?.score ?? null}
                     isHighScore={(analysisResult?.score ?? 0) >= 80}
+                    // NEW_FEATURE: Pass a prop to indicate a perfect score for special celebration effects.
+                    isPerfectScore={analysisResult?.score === 100}
                   />
               </div>
 
@@ -400,19 +407,20 @@ export default function App() {
               </div>
             </>
           ) : (
-            <div className="text-center p-10 bg-gray-800 rounded-2xl shadow-xl">
-              <h2 className="text-3xl font-bold text-green-400">Level Cleared!</h2>
-              <p className="mt-2 text-gray-300">You've mastered the {PHRASE_LIBRARIES[difficulty].name} level.</p>
-            </div>
+            // NEW_FEATURE: Display the animated level completion screen.
+            <LevelCompleteAnimation
+              difficulty={difficulty}
+              onNextLevel={handleNextLevel}
+              onReplayLevel={handleReplayLevel}
+            />
           )}
 
           <StatusMessage isLoading={appState === 'analyzing'} error={error} />
         </main>
 
-        <footer className="w-full flex justify-center py-6 sticky bottom-0 bg-gray-900/80 backdrop-blur-sm">
+        <footer className="w-full flex justify-center py-6 sticky bottom-0 bg-gray-900/80 backdrop-blur-sm h-28 items-center">
           {appState === 'idle' && <RecordButton isRecording={false} onClick={startRecording} />}
           {appState === 'recording' && <RecordButton isRecording={true} onClick={stopRecording} />}
-          {/* REFACTOR: All buttons now use the new, standardized Button component for consistency and maintainability. */}
           {appState === 'confirming' && (
             <div className="flex items-center space-x-4">
               <Button onClick={startRecording} variant="secondary" size="lg">Record Again</Button>
@@ -433,20 +441,7 @@ export default function App() {
                 )}
              </div>
           )}
-          {appState === 'levelComplete' && (
-             <div className="flex items-center space-x-4">
-                <Button onClick={() => {
-                    resetState(true);
-                    setAttemptCount(0); // FIX: Manually reset attempt count here.
-                    setAppState('idle');
-                }} variant="secondary" size="lg">
-                    Replay Level
-                </Button>
-                <Button onClick={handleNextLevel} variant="primary" size="lg">
-                    Next Level →
-                </Button>
-             </div>
-          )}
+          {/* The buttons for 'levelComplete' are now handled by the LevelCompleteAnimation component */}
         </footer>
       </div>
     </div>

@@ -1,22 +1,23 @@
-
 import React from 'react';
 
 interface ScoreDisplayProps {
   score: number | null;
-  // NEW_FEATURE: A boolean to indicate if the score is high enough to trigger a special visual effect.
   isHighScore: boolean;
+  // NEW_FEATURE: A boolean for a perfect score to trigger a special celebration effect.
+  isPerfectScore: boolean;
 }
 
-export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ score, isHighScore }) => {
+export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ score, isHighScore, isPerfectScore }) => {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const offset = score !== null ? circumference - (score / 100) * circumference : circumference;
 
-  const scoreColor = score !== null ? (score >= 80 ? 'text-green-400' : score > 60 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-400';
+  // NEW_FEATURE: A perfect score gets a special golden color.
+  const scoreColor = isPerfectScore ? 'text-yellow-400' : score !== null ? (score >= 80 ? 'text-green-400' : score > 60 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-400';
 
   return (
-    // NEW_FEATURE: Conditionally apply the 'high-score-glow' class for a celebratory visual effect.
-    <div className={`bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center min-h-[150px] h-full transition-shadow duration-500 ${isHighScore ? 'high-score-glow' : ''}`}>
+    // NEW_FEATURE: Conditionally apply a more intense 'perfect-score-glow' for a score of 100.
+    <div className={`bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center min-h-[150px] h-full transition-shadow duration-500 ${isPerfectScore ? 'perfect-score-glow' : isHighScore ? 'high-score-glow' : ''}`}>
       <h3 className="text-sm font-semibold text-gray-400 mb-2">Accuracy Score</h3>
       <div className="relative w-28 h-28">
         <svg className="w-full h-full" viewBox="0 0 120 120">
@@ -47,6 +48,12 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ score, isHighScore }
           </span>
         </div>
       </div>
+       {/* NEW_FEATURE: Display a "Perfect!" message for a score of 100. */}
+      {isPerfectScore && (
+        <p className="mt-2 text-yellow-400 font-bold text-lg animate-pulse">
+          Perfect! 🎉
+        </p>
+      )}
     </div>
   );
 };

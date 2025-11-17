@@ -64,3 +64,29 @@ export const playSuccessSound = () => {
   // 3. Final high "sparkle" note
   playTone(1046.50, 0.15, now + 0.4, { type: 'sine', gain: baseGain * 0.9 }); // C6
 };
+
+/**
+ * NEW_FEATURE: Plays an even more celebratory, triumphant sound for a perfect score of 100.
+ * This sound is a rapid, ascending major arpeggio followed by a resolving high note, creating
+ * a feeling of accomplishment and fanfare.
+ */
+export const playPerfectScoreSound = () => {
+  const now = audioCtx.currentTime;
+  const baseGain = 0.1;
+  const sparkleGain = baseGain * 0.8;
+
+  // Bass note for foundation
+  playTone(130.81, 0.5, now, { type: 'sine', gain: baseGain * 0.9 }); // C3
+
+  // Rapid ascending C major 7 arpeggio
+  playTone(523.25, 0.1, now + 0.0, { type: 'triangle', gain: baseGain }); // C5
+  playTone(659.25, 0.1, now + 0.08, { type: 'triangle', gain: baseGain }); // E5
+  playTone(783.99, 0.1, now + 0.16, { type: 'triangle', gain: baseGain }); // G5
+  playTone(987.77, 0.1, now + 0.24, { type: 'triangle', gain: baseGain }); // B5
+  
+  // High C sparkle
+  playTone(1046.50, 0.2, now + 0.32, { type: 'sine', gain: sparkleGain }); // C6
+  
+  // A slightly delayed harmony note to make it fuller
+  playTone(783.99, 0.2, now + 0.35, { type: 'sine', gain: sparkleGain * 0.7 }); // G5
+};
