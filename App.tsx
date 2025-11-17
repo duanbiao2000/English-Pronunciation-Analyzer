@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
 import { Header } from './components/Header';
@@ -10,16 +11,17 @@ import { ScoreDisplay } from './components/ScoreDisplay';
 import { ErrorPatternsCard } from './components/ErrorPatternsCard';
 import { WaveformComparison } from './components/WaveformComparison';
 import { encode, decode, decodeAudioData, createBlob, createWavBlob, audioBufferToWavBlob } from './utils/audio';
-import type { AnalysisResult } from './types';
+import type { AnalysisResult, SoundGroup } from './types';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-// NEW_FEATURE: Import the special sound effect for a perfect score.
 import { playSuccessSound, playPerfectScoreSound } from './utils/sfx';
 import { PHRASE_LIBRARIES, Difficulty } from './data/phrases';
 import { DifficultySelector } from './components/DifficultySelector';
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 import { Button } from './components/Button';
-// NEW_FEATURE: Import the component for level completion animations.
 import { LevelCompleteAnimation } from './components/LevelCompleteAnimation';
+// REFACTOR: Import the refactored sound practice data.
+import { SOUND_PRACTICE_LIBRARIES } from './data/sounds';
+import { PracticeModeSelector } from './components/PracticeModeSelector';
 
 
 const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh' | 'ja') => {
@@ -78,10 +80,13 @@ export default function App() {
   const [appState, setAppState] = useState<'idle' | 'recording' | 'confirming' | 'analyzing' | 'results' | 'levelComplete'>('idle');
   const [error, setError] = useState<string | null>(null);
   
+  // State for practice mode and difficulty
+  const [practiceMode, setPracticeMode] = useState<'phrase' | 'sound'>('phrase');
   const [difficulty, setDifficulty] = useState<Difficulty>('newbie');
-  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   
-  const TARGET_PHRASE = PHRASE_LIBRARIES[difficulty].phrases[currentPhraseIndex];
+  // REFACTOR: Renamed state for clarity to handle both phrases and sound groups.
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
   
   const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
   
@@ -90,6 +95,31 @@ export default function App() {
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [correctAudioUrl, setCorrectAudioUrl] = useState<string | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
+
+  // REFACTOR: Derive all practice materials and display text from a single source of truth.
+  const isPhraseMode = practiceMode === 'phrase';
+  const currentLibrary = isPhraseMode
+    ? PHRASE_LIBRARIES[difficulty].phrases
+    : SOUND_PRACTICE_LIBRARIES[difficulty].soundGroups;
+
+  const currentItem = currentLibrary[currentGroupIndex];
+  
+  const TARGET_PHRASE = isPhraseMode
+    ? currentItem as string
+    : (currentItem as SoundGroup).words[currentWordIndex];
+
+  let cardProgressText = '';
+  let cardDescription: string | undefined = undefined;
+
+  if (isPhraseMode) {
+    cardProgressText = `Stage ${currentGroupIndex + 1} / ${currentLibrary.length}`;
+  } else {
+    const currentGroup = currentItem as SoundGroup;
+    const totalWordsInGroup = currentGroup.words.length;
+    cardProgressText = `Word ${currentWordIndex + 1} / ${totalWordsInGroup}`;
+    cardDescription = `Sound Group ${currentGroupIndex + 1} / ${currentLibrary.length}: ${currentGroup.name}`;
+  }
+
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -111,8 +141,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // NEW_FEATURE: Play a special sound for a perfect score, or the standard success sound for high scores.
-    if (appState === 'results' && analysisResult?.score !== null) {
+    if (appState === 'results' && analysisResult) {
       if (analysisResult.score === 100) {
         playPerfectScoreSound();
       } else if (analysisResult.score >= 80) {
@@ -134,8 +163,10 @@ export default function App() {
     setAnalysisResult(null);
     setError(null);
 
+    // REFACTOR: Reset indices based on whether it's a new level or just a retry.
     if (isNewLevel) {
-      setCurrentPhraseIndex(0);
+      setCurrentGroupIndex(0);
+      setCurrentWordIndex(0);
     }
   };
   
@@ -319,16 +350,41 @@ export default function App() {
   };
   
   const handleNextStage = () => {
-    const currentLevelPhrases = PHRASE_LIBRARIES[difficulty].phrases;
-    const nextIndex = currentPhraseIndex + 1;
+    if (isPhraseMode) {
+        const nextIndex = currentGroupIndex + 1;
+        if (nextIndex >= currentLibrary.length) {
+          setAppState('levelComplete');
+        } else {
+          setCurrentGroupIndex(nextIndex);
+          resetState();
+          setAttemptCount(0);
+          setAppState('idle');
+        }
+    } else { // Sound Practice Mode
+        const currentGroup = currentItem as SoundGroup;
+        const nextWordIndex = currentWordIndex + 1;
 
-    if (nextIndex >= currentLevelPhrases.length) {
-      setAppState('levelComplete');
-    } else {
-      setCurrentPhraseIndex(nextIndex);
-      resetState();
-      setAttemptCount(0);
-      setAppState('idle');
+        if (nextWordIndex >= currentGroup.words.length) {
+            // Finished this group, move to the next group
+            const nextGroupIndex = currentGroupIndex + 1;
+            if (nextGroupIndex >= currentLibrary.length) {
+                // Finished all groups in this difficulty
+                setAppState('levelComplete');
+            } else {
+                // Start next group
+                setCurrentGroupIndex(nextGroupIndex);
+                setCurrentWordIndex(0);
+                resetState();
+                setAttemptCount(0);
+                setAppState('idle');
+            }
+        } else {
+            // Move to the next word in the same group
+            setCurrentWordIndex(nextWordIndex);
+            resetState();
+            setAttemptCount(0);
+            setAppState('idle');
+        }
     }
   };
 
@@ -359,6 +415,18 @@ export default function App() {
       <div className="w-full max-w-4xl mx-auto flex flex-col flex-grow">
         <Header />
         
+        <PracticeModeSelector 
+          currentMode={practiceMode}
+          onModeChange={(mode) => {
+            setPracticeMode(mode);
+            resetState(true);
+            setAttemptCount(0);
+            setAppState('idle');
+          }}
+          disabled={appState !== 'idle' && appState !== 'levelComplete'}
+        />
+
+        {/* REFACTOR: The DifficultySelector is now used for both practice modes. */}
         <DifficultySelector 
             currentDifficulty={difficulty}
             onDifficultyChange={(newDifficulty) => {
@@ -381,8 +449,8 @@ export default function App() {
               <PronunciationCard
                 phrase={TARGET_PHRASE}
                 audioUrl={correctAudioUrl}
-                stage={currentPhraseIndex + 1}
-                totalStages={PHRASE_LIBRARIES[difficulty].phrases.length}
+                progressText={cardProgressText}
+                description={cardDescription}
               />
           
               <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -392,7 +460,6 @@ export default function App() {
                   <ScoreDisplay
                     score={analysisResult?.score ?? null}
                     isHighScore={(analysisResult?.score ?? 0) >= 80}
-                    // NEW_FEATURE: Pass a prop to indicate a perfect score for special celebration effects.
                     isPerfectScore={analysisResult?.score === 100}
                   />
               </div>
@@ -407,7 +474,7 @@ export default function App() {
               </div>
             </>
           ) : (
-            // NEW_FEATURE: Display the animated level completion screen.
+            // REFACTOR: The level completion animation is now shown for both modes.
             <LevelCompleteAnimation
               difficulty={difficulty}
               onNextLevel={handleNextLevel}
@@ -432,16 +499,15 @@ export default function App() {
                 <Button onClick={startRecording} variant="secondary" size="lg">Try Again</Button>
                 {(analysisResult?.score ?? 0) >= 80 ? (
                     <Button onClick={handleNextStage} variant="primary" size="lg">
-                        Next Stage →
+                        {isPhraseMode ? 'Next Stage →' : 'Next Word →'}
                     </Button>
                 ) : attemptCount >= 3 && (
                     <Button onClick={handleNextStage} variant="secondary" size="lg">
-                        Skip Stage →
+                        {isPhraseMode ? 'Skip Stage →' : 'Skip Word →'}
                     </Button>
                 )}
              </div>
           )}
-          {/* The buttons for 'levelComplete' are now handled by the LevelCompleteAnimation component */}
         </footer>
       </div>
     </div>

@@ -5,12 +5,11 @@ import { cn } from '../utils/cn';
 interface PronunciationCardProps {
   phrase: string;
   audioUrl: string | null;
-  // NEW_FEATURE: Props to display the current stage progress (e.g., "Stage 3 of 5").
-  stage: number;
-  totalStages: number;
+  progressText: string;
+  description?: string; // NEW_FEATURE: Optional description for the practice type.
 }
 
-export const PronunciationCard: React.FC<PronunciationCardProps> = ({ phrase, audioUrl, stage, totalStages }) => {
+export const PronunciationCard: React.FC<PronunciationCardProps> = ({ phrase, audioUrl, progressText, description }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -50,13 +49,14 @@ export const PronunciationCard: React.FC<PronunciationCardProps> = ({ phrase, au
     <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-lg border border-gray-700">
       <div className="flex justify-between items-center">
         <div>
-           {/* NEW_FEATURE: Display the current stage progress to enhance the game-like feel. */}
           <div className="flex items-center space-x-3 mb-2">
             <h2 className="text-md font-semibold text-blue-300">Let's Practice:</h2>
             <span className="text-xs font-mono px-2 py-1 bg-gray-700 text-gray-300 rounded-md">
-              Stage {stage} / {totalStages}
+              {progressText}
             </span>
           </div>
+          {/* NEW_FEATURE: Display a description if one is provided (for sound practice). */}
+          {description && <p className="text-sm text-gray-400 mb-2">{description}</p>}
           <p className="text-xl sm:text-2xl text-gray-200 font-medium">
             "{phrase}"
           </p>
