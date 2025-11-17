@@ -11,7 +11,7 @@ import { ScoreDisplay } from './components/ScoreDisplay';
 import { ErrorPatternsCard } from './components/ErrorPatternsCard';
 import { WaveformComparison } from './components/WaveformComparison';
 import { encode, decode, decodeAudioData, createBlob, createWavBlob, audioBufferToWavBlob } from './utils/audio';
-import type { AnalysisResult, SoundGroup } from './types';
+import type { AnalysisResult, PracticeMode, AdaptationDrill, MinimalPair, IntonationPhrase, ConnectedSpeechPhrase } from './types';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { playSuccessSound, playPerfectScoreSound } from './utils/sfx';
 import { PHRASE_LIBRARIES, Difficulty } from './data/phrases';
@@ -19,9 +19,13 @@ import { DifficultySelector } from './components/DifficultySelector';
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 import { Button } from './components/Button';
 import { LevelCompleteAnimation } from './components/LevelCompleteAnimation';
-// REFACTOR: Import the refactored sound practice data.
 import { SOUND_PRACTICE_LIBRARIES } from './data/sounds';
 import { PracticeModeSelector } from './components/PracticeModeSelector';
+import { AdaptationDrillSelector } from './components/AdaptationDrillSelector';
+import { MINIMAL_PAIR_LIBRARIES } from './data/minimal_pairs';
+import { INTONATION_LIBRARIES } from './data/intonation';
+// BATCH_4: Import new data
+import { CONNECTED_SPEECH_LIBRARIES } from './data/connected_speech';
 
 
 const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh' | 'ja') => {
@@ -50,21 +54,134 @@ Analyze the user's attempt against the target phrase and return your analysis as
 `;
 };
 
+const MINIMAL_PAIR_ANALYSIS_PROMPT = (userAttempt: string, targetWord: string, otherWord: string, focus: string, language: 'en' | 'zh' | 'ja') => {
+  let languageInstruction = '';
+  switch (language) {
+    case 'zh':
+      languageInstruction = '你的所有回答，包括反馈、解释和练习，都必须使用中文。';
+      break;
+    case 'ja':
+      languageInstruction = 'あなたのすべての回答は、フィードバック、説明、練習問題を含め、すべて日本語でなければなりません。';
+      break;
+    case 'en':
+    default:
+      languageInstruction = 'All of your feedback, explanations, and exercises must be in English.';
+      break;
+  }
+  
+  return `
+You are an expert American English pronunciation coach specializing in minimal pairs. Your task is to analyze a user's pronunciation of a target word and determine if they successfully distinguished it from its minimal pair counterpart.
+
+The minimal pair focuses on the difference: ${focus}.
+The target word is: "${targetWord}"
+The other word in the pair is: "${otherWord}"
+The user's attempt (transcribed) is: "${userAttempt}"
+
+${languageInstruction}
+
+Your primary goal is to assess whether the user's pronunciation of the key sound in "${targetWord}" was distinct and correct, or if it sounded like the key sound in "${otherWord}". For example, if the target is "sheep" (/iː/) and the other word is "ship" (/ɪ/), did the user produce a long /iː/ or a short /ɪ/? Provide very specific feedback on this distinction.
+
+Return your analysis as a single JSON object. The JSON structure itself (keys like "score", "feedback") must remain in English, but the string values for "feedback", "error", "explanation", and "exercises" must be in the specified language.
+`;
+}
+
+const INTONATION_ANALYSIS_PROMPT = (userAttempt: string, targetSentenceWithMarkers: string, pattern: string, language: 'en' | 'zh' | 'ja') => {
+  let languageInstruction = '';
+  switch (language) {
+    case 'zh':
+      languageInstruction = '你的所有回答，包括反馈、解释和练习，都必须使用中文。';
+      break;
+    case 'ja':
+      languageInstruction = 'あなたのすべての回答は、フィードバック、説明、練習問題を含め、すべて日本語でなければなりません。';
+      break;
+    case 'en':
+    default:
+      languageInstruction = 'All of your feedback, explanations, and exercises must be in English.';
+      break;
+  }
+  
+  const cleanTargetSentence = targetSentenceWithMarkers.replace(/\*\*|~/g, '');
+
+  return `
+You are an expert American English pronunciation coach specializing in prosody (intonation, stress, and rhythm).
+Your task is to analyze the user's intonation and stress in a given sentence.
+
+The target sentence is: "${cleanTargetSentence}"
+The sentence with intended stress markers is: "${targetSentenceWithMarkers}". Words enclosed in double asterisks are the primary stress points.
+The key focus is on achieving the correct "${pattern}" intonation pattern.
+
+The user's attempt (transcribed) is: "${userAttempt}"
+
+${languageInstruction}
+
+Analyze the following points. Your feedback should be encouraging but also precise and actionable.
+1.  **Intonation Contour**: Did the user's pitch rise or fall correctly to match the "${pattern}" pattern? For example, for a Yes/No question, pitch should rise at the end. For a statement, it should fall.
+2.  **Stress Placement**: Did the user correctly emphasize the words marked with asterisks? Was the stress strong enough?
+3.  **Overall Rhythm**: Was the flow of the sentence natural and not choppy?
+
+Provide specific feedback on these points. Example: "Your pitch correctly fell at the end of the statement, which is great. However, the stress on the word 'really' could be stronger to convey more emphasis."
+
+Return your analysis as a single JSON object. The \`correctedPhrase\` in your response should be the clean sentence without any markers. The JSON structure must remain in English, but the string values must be in the specified language.
+`;
+}
+
+// BATCH_4: Create a new, specialized prompt for connected speech analysis.
+const CONNECTED_SPEECH_ANALYSIS_PROMPT = (userAttempt: string, targetSentenceWithMarkers: string, feature: string, naturalSpeech: string, language: 'en' | 'zh' | 'ja') => {
+  let languageInstruction = '';
+  switch (language) {
+    case 'zh':
+      languageInstruction = '你的所有回答，包括反馈、解释和练习，都必须使用中文。';
+      break;
+    case 'ja':
+      languageInstruction = 'あなたのすべての回答は、フィードバック、説明、練習問題を含め、すべて日本語でなければなりません。';
+      break;
+    case 'en':
+    default:
+      languageInstruction = 'All of your feedback, explanations, and exercises must be in English.';
+      break;
+  }
+  
+  const cleanTargetSentence = targetSentenceWithMarkers.replace(/~|\*\*/g, '');
+
+  return `
+You are an expert American English pronunciation coach specializing in connected speech.
+Your task is to analyze if the user correctly uses natural linking, reductions, and sound changes.
+
+The target phrase is: "${cleanTargetSentence}"
+The phrase with connection markers is: "${targetSentenceWithMarkers}". The '~' marker indicates where sounds should link.
+The specific feature we are practicing is: "${feature}".
+In natural, fast speech, this often sounds like: "${naturalSpeech}".
+
+The user's attempt (transcribed) is: "${userAttempt}"
+
+${languageInstruction}
+
+Analyze the user's attempt with a focus on connected speech.
+1.  **Linking/Connections**: Did the user smoothly link the words where the '~' marker is? For example, in "an~apple", did it sound like one word ("anapple")?
+2.  **Reductions/Elision**: Did the user use common reductions (e.g., "going to" -> "gonna") or drop sounds (e.g., the 't' in "next door") as indicated by the 'feature'?
+3.  **Assimilation**: Did any sounds change as they blended together (e.g., "did you" -> "dijoo")?
+
+Provide specific, actionable feedback on these points. For example: "Great job linking 'turn' and 'off'. I heard a clear 'turn-off' sound. However, you pronounced each word in 'what are you' separately. Try to blend them together to sound more like 'whaddaya'."
+
+Return your analysis as a single JSON object. The \`correctedPhrase\` in your response should be the clean sentence. The JSON structure must remain in English, but the string values must be in the specified language.
+`;
+}
+
 const analysisSchema = {
   type: Type.OBJECT,
   properties: {
-    score: { type: Type.INTEGER, description: 'An integer from 0 to 100 representing the overall pronunciation accuracy. A higher score is better.' },
-    correctedPhrase: { type: Type.STRING, description: 'The original target phrase.' },
-    feedback: { type: Type.STRING, description: 'A short, general, and encouraging feedback on the user\'s pronunciation.' },
+    score: { type: Type.INTEGER, description: 'An integer from 0 to 100 representing the overall pronunciation accuracy, with a heavy weight on correct prosody (intonation and stress) or connected speech features.' },
+    correctedPhrase: { type: Type.STRING, description: 'The original target word or phrase, without any markers.' },
+    feedback: { type: Type.STRING, description: 'A short, general, and encouraging feedback on the user\'s performance.' },
     errorPatterns: {
       type: Type.ARRAY,
-      description: "An array of specific pronunciation errors. If no errors are found, this should be an empty array.",
+      description: "An array of specific errors related to the practice drill (e.g., prosody, minimal pair distinction, connected speech). If no errors are found, this should be an empty array.",
       items: {
         type: Type.OBJECT,
         properties: {
-          error: { type: Type.STRING, description: 'A short description of the error (e.g., "\'th\' sound in \'the\' pronounced as \'d\'").' },
-          explanation: { type: Type.STRING, description: 'A detailed explanation of the error, explaining the correct tongue/lip placement.' },
-          exercises: { type: Type.STRING, description: 'A list of words or short sentences to practice the correct sound.' },
+          error: { type: Type.STRING, description: 'A short description of the error.' },
+          explanation: { type: Type.STRING, description: 'A detailed explanation of the error and the correct pattern.' },
+          exercises: { type: Type.STRING, description: 'A sentence or two to practice the correct pattern.' },
         },
         required: ['error', 'explanation', 'exercises']
       }
@@ -80,13 +197,13 @@ export default function App() {
   const [appState, setAppState] = useState<'idle' | 'recording' | 'confirming' | 'analyzing' | 'results' | 'levelComplete'>('idle');
   const [error, setError] = useState<string | null>(null);
   
-  // State for practice mode and difficulty
-  const [practiceMode, setPracticeMode] = useState<'phrase' | 'sound'>('phrase');
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('phrase');
+  const [adaptationDrill, setAdaptationDrill] = useState<AdaptationDrill>('minimal_pairs');
   const [difficulty, setDifficulty] = useState<Difficulty>('newbie');
   
-  // REFACTOR: Renamed state for clarity to handle both phrases and sound groups.
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [currentPairWordIndex, setCurrentPairWordIndex] = useState(0); // 0 for word1, 1 for word2
   
   const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
   
@@ -96,28 +213,61 @@ export default function App() {
   const [correctAudioUrl, setCorrectAudioUrl] = useState<string | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
 
-  // REFACTOR: Derive all practice materials and display text from a single source of truth.
   const isPhraseMode = practiceMode === 'phrase';
-  const currentLibrary = isPhraseMode
-    ? PHRASE_LIBRARIES[difficulty].phrases
-    : SOUND_PRACTICE_LIBRARIES[difficulty].soundGroups;
+  const isSoundMode = practiceMode === 'sound';
+  const isAdaptationMode = practiceMode === 'adaptation';
 
-  const currentItem = currentLibrary[currentGroupIndex];
-  
-  const TARGET_PHRASE = isPhraseMode
-    ? currentItem as string
-    : (currentItem as SoundGroup).words[currentWordIndex];
-
-  let cardProgressText = '';
+  let TARGET_PHRASE: string = '';
+  let displayPhrase: string = '';
+  let cardProgressText: string = '';
   let cardDescription: string | undefined = undefined;
 
   if (isPhraseMode) {
+    const currentLibrary = PHRASE_LIBRARIES[difficulty].phrases;
+    TARGET_PHRASE = currentLibrary[currentGroupIndex];
+    displayPhrase = TARGET_PHRASE;
     cardProgressText = `Stage ${currentGroupIndex + 1} / ${currentLibrary.length}`;
-  } else {
-    const currentGroup = currentItem as SoundGroup;
+  } else if (isSoundMode) {
+    const currentLibrary = SOUND_PRACTICE_LIBRARIES[difficulty].soundGroups;
+    const currentGroup = currentLibrary[currentGroupIndex];
+    TARGET_PHRASE = currentGroup.words[currentWordIndex];
+    displayPhrase = TARGET_PHRASE;
     const totalWordsInGroup = currentGroup.words.length;
     cardProgressText = `Word ${currentWordIndex + 1} / ${totalWordsInGroup}`;
     cardDescription = `Sound Group ${currentGroupIndex + 1} / ${currentLibrary.length}: ${currentGroup.name}`;
+  } else if (isAdaptationMode) {
+    switch (adaptationDrill) {
+      case 'minimal_pairs':
+        const minimalPairLibrary = MINIMAL_PAIR_LIBRARIES[difficulty].pairs;
+        const currentPair = minimalPairLibrary[currentGroupIndex];
+        TARGET_PHRASE = currentPairWordIndex === 0 ? currentPair.word1 : currentPair.word2;
+        displayPhrase = `${currentPair.word1} / ${currentPair.word2}`;
+        cardProgressText = `Pair ${currentGroupIndex + 1} / ${minimalPairLibrary.length}`;
+        cardDescription = `${currentPair.focus} | Now say: "${TARGET_PHRASE}"`;
+        break;
+      case 'intonation':
+        const intonationLibrary = INTONATION_LIBRARIES[difficulty].phrases;
+        const currentIntonationPhrase = intonationLibrary[currentGroupIndex];
+        TARGET_PHRASE = currentIntonationPhrase.sentence;
+        displayPhrase = currentIntonationPhrase.sentence;
+        cardProgressText = `Phrase ${currentGroupIndex + 1} / ${intonationLibrary.length}`;
+        cardDescription = `Pattern: ${currentIntonationPhrase.pattern} | Type: ${currentIntonationPhrase.type}`;
+        break;
+      // BATCH_4: Add logic for connected speech drill
+      case 'connected_speech':
+        const connectedSpeechLibrary = CONNECTED_SPEECH_LIBRARIES[difficulty].phrases;
+        const currentConnectedPhrase = connectedSpeechLibrary[currentGroupIndex];
+        TARGET_PHRASE = currentConnectedPhrase.sentence;
+        displayPhrase = currentConnectedPhrase.sentence;
+        cardProgressText = `Phrase ${currentGroupIndex + 1} / ${connectedSpeechLibrary.length}`;
+        cardDescription = `Feature: ${currentConnectedPhrase.feature} | Sounds like: "${currentConnectedPhrase.naturalSpeech}"`;
+        break;
+      default:
+        TARGET_PHRASE = "Select a drill above to begin your practice.";
+        displayPhrase = TARGET_PHRASE;
+        cardProgressText = "Advanced";
+        break;
+    }
   }
 
 
@@ -163,10 +313,10 @@ export default function App() {
     setAnalysisResult(null);
     setError(null);
 
-    // REFACTOR: Reset indices based on whether it's a new level or just a retry.
     if (isNewLevel) {
       setCurrentGroupIndex(0);
       setCurrentWordIndex(0);
+      setCurrentPairWordIndex(0);
     }
   };
   
@@ -215,9 +365,37 @@ export default function App() {
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
         
+        let prompt;
+        let phraseForTts = TARGET_PHRASE.replace(/\*\*|~/g, '');
+
+        if (isAdaptationMode) {
+          switch (adaptationDrill) {
+            case 'minimal_pairs':
+              const currentPair = MINIMAL_PAIR_LIBRARIES[difficulty].pairs[currentGroupIndex];
+              const otherWord = currentPairWordIndex === 0 ? currentPair.word2 : currentPair.word1;
+              prompt = MINIMAL_PAIR_ANALYSIS_PROMPT(userTranscriptionRef.current, TARGET_PHRASE, otherWord, currentPair.focus, language);
+              phraseForTts = TARGET_PHRASE;
+              break;
+            case 'intonation':
+              const currentIntonationPhrase = INTONATION_LIBRARIES[difficulty].phrases[currentGroupIndex];
+              prompt = INTONATION_ANALYSIS_PROMPT(userTranscriptionRef.current, currentIntonationPhrase.sentence, currentIntonationPhrase.pattern, language);
+              break;
+            // BATCH_4: Add logic for connected speech prompt
+            case 'connected_speech':
+              const currentConnectedPhrase = CONNECTED_SPEECH_LIBRARIES[difficulty].phrases[currentGroupIndex];
+              prompt = CONNECTED_SPEECH_ANALYSIS_PROMPT(userTranscriptionRef.current, currentConnectedPhrase.sentence, currentConnectedPhrase.feature, currentConnectedPhrase.naturalSpeech, language);
+              break;
+            default:
+              prompt = ANALYSIS_PROMPT(userTranscriptionRef.current, phraseForTts, language);
+              break;
+          }
+        } else {
+            prompt = ANALYSIS_PROMPT(userTranscriptionRef.current, phraseForTts, language);
+        }
+
         const analysisResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: ANALYSIS_PROMPT(userTranscriptionRef.current, TARGET_PHRASE, language),
+            contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: analysisSchema,
@@ -351,6 +529,7 @@ export default function App() {
   
   const handleNextStage = () => {
     if (isPhraseMode) {
+        const currentLibrary = PHRASE_LIBRARIES[difficulty].phrases;
         const nextIndex = currentGroupIndex + 1;
         if (nextIndex >= currentLibrary.length) {
           setAppState('levelComplete');
@@ -360,18 +539,16 @@ export default function App() {
           setAttemptCount(0);
           setAppState('idle');
         }
-    } else { // Sound Practice Mode
-        const currentGroup = currentItem as SoundGroup;
+    } else if (isSoundMode) {
+        const currentLibrary = SOUND_PRACTICE_LIBRARIES[difficulty].soundGroups;
+        const currentGroup = currentLibrary[currentGroupIndex];
         const nextWordIndex = currentWordIndex + 1;
 
         if (nextWordIndex >= currentGroup.words.length) {
-            // Finished this group, move to the next group
             const nextGroupIndex = currentGroupIndex + 1;
             if (nextGroupIndex >= currentLibrary.length) {
-                // Finished all groups in this difficulty
                 setAppState('levelComplete');
             } else {
-                // Start next group
                 setCurrentGroupIndex(nextGroupIndex);
                 setCurrentWordIndex(0);
                 resetState();
@@ -379,11 +556,43 @@ export default function App() {
                 setAppState('idle');
             }
         } else {
-            // Move to the next word in the same group
             setCurrentWordIndex(nextWordIndex);
             resetState();
             setAttemptCount(0);
             setAppState('idle');
+        }
+    } else if (isAdaptationMode) {
+        if (adaptationDrill === 'minimal_pairs') {
+            const currentLibrary = MINIMAL_PAIR_LIBRARIES[difficulty].pairs;
+            if (currentPairWordIndex === 0) {
+                setCurrentPairWordIndex(1);
+                resetState();
+                setAttemptCount(0);
+                setAppState('idle');
+            } else {
+                const nextPairIndex = currentGroupIndex + 1;
+                if (nextPairIndex >= currentLibrary.length) {
+                    setAppState('levelComplete');
+                } else {
+                    setCurrentGroupIndex(nextPairIndex);
+                    setCurrentPairWordIndex(0);
+                    resetState();
+                    setAttemptCount(0);
+                    setAppState('idle');
+                }
+            }
+        } else if (adaptationDrill === 'intonation' || adaptationDrill === 'connected_speech') {
+            const isIntonation = adaptationDrill === 'intonation';
+            const currentLibrary = isIntonation ? INTONATION_LIBRARIES[difficulty].phrases : CONNECTED_SPEECH_LIBRARIES[difficulty].phrases;
+            const nextIndex = currentGroupIndex + 1;
+            if (nextIndex >= currentLibrary.length) {
+                setAppState('levelComplete');
+            } else {
+                setCurrentGroupIndex(nextIndex);
+                resetState();
+                setAttemptCount(0);
+                setAppState('idle');
+            }
         }
     }
   };
@@ -404,6 +613,24 @@ export default function App() {
       resetState(true);
       setAttemptCount(0);
       setAppState('idle');
+  };
+  
+  const getNextButtonText = () => {
+    if (isPhraseMode) return 'Next Stage →';
+    if (isSoundMode) {
+      const soundGroups = SOUND_PRACTICE_LIBRARIES[difficulty].soundGroups;
+      const currentGroup = soundGroups[currentGroupIndex];
+      return currentWordIndex < currentGroup.words.length - 1 ? 'Next Word →' : 'Next Sound Group →';
+    }
+    if (isAdaptationMode) {
+      if (adaptationDrill === 'minimal_pairs') {
+        return currentPairWordIndex === 0 ? 'Practice Next Word →' : 'Next Pair →';
+      }
+      if (adaptationDrill === 'intonation' || adaptationDrill === 'connected_speech') {
+        return 'Next Phrase →';
+      }
+    }
+    return 'Next →';
   };
 
   if (!isApiKeyConfigured) {
@@ -426,16 +653,28 @@ export default function App() {
           disabled={appState !== 'idle' && appState !== 'levelComplete'}
         />
 
-        {/* REFACTOR: The DifficultySelector is now used for both practice modes. */}
-        <DifficultySelector 
-            currentDifficulty={difficulty}
-            onDifficultyChange={(newDifficulty) => {
-                setDifficulty(newDifficulty);
-                resetState(true);
-                setAttemptCount(0);
-            }}
-            disabled={appState !== 'idle' && appState !== 'levelComplete'}
-        />
+        {isAdaptationMode ? (
+            <AdaptationDrillSelector
+                currentDrill={adaptationDrill}
+                onDrillChange={(drill) => {
+                  setAdaptationDrill(drill);
+                  resetState(true);
+                  setAttemptCount(0);
+                  setAppState('idle');
+                }}
+                disabled={appState !== 'idle' && appState !== 'levelComplete'}
+            />
+        ) : (
+            <DifficultySelector 
+                currentDifficulty={difficulty}
+                onDifficultyChange={(newDifficulty) => {
+                    setDifficulty(newDifficulty);
+                    resetState(true);
+                    setAttemptCount(0);
+                }}
+                disabled={appState !== 'idle' && appState !== 'levelComplete'}
+            />
+        )}
 
         <LanguageSwitcher
           currentLanguage={language}
@@ -447,7 +686,7 @@ export default function App() {
           {appState !== 'levelComplete' ? (
             <>
               <PronunciationCard
-                phrase={TARGET_PHRASE}
+                phrase={displayPhrase}
                 audioUrl={correctAudioUrl}
                 progressText={cardProgressText}
                 description={cardDescription}
@@ -474,7 +713,6 @@ export default function App() {
               </div>
             </>
           ) : (
-            // REFACTOR: The level completion animation is now shown for both modes.
             <LevelCompleteAnimation
               difficulty={difficulty}
               onNextLevel={handleNextLevel}
@@ -499,11 +737,11 @@ export default function App() {
                 <Button onClick={startRecording} variant="secondary" size="lg">Try Again</Button>
                 {(analysisResult?.score ?? 0) >= 80 ? (
                     <Button onClick={handleNextStage} variant="primary" size="lg">
-                        {isPhraseMode ? 'Next Stage →' : 'Next Word →'}
+                        {getNextButtonText()}
                     </Button>
                 ) : attemptCount >= 3 && (
                     <Button onClick={handleNextStage} variant="secondary" size="lg">
-                        {isPhraseMode ? 'Skip Stage →' : 'Skip Word →'}
+                        Skip →
                     </Button>
                 )}
              </div>

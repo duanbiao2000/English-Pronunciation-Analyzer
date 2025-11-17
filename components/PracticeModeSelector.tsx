@@ -1,9 +1,10 @@
 import React from 'react';
 import { Button } from './Button';
+import type { PracticeMode } from '../types';
 
 interface PracticeModeSelectorProps {
-  currentMode: 'phrase' | 'sound';
-  onModeChange: (mode: 'phrase' | 'sound') => void;
+  currentMode: PracticeMode;
+  onModeChange: (mode: PracticeMode) => void;
   disabled: boolean;
 }
 
@@ -31,6 +32,15 @@ export const PracticeModeSelector: React.FC<PracticeModeSelectorProps> = ({ curr
         aria-pressed={currentMode === 'sound'}
       >
         Sound Practice
+      </Button>
+      <Button
+        onClick={() => onModeChange('adaptation')}
+        disabled={disabled}
+        variant={currentMode === 'adaptation' ? 'primary' : 'secondary'}
+        size="sm"
+        aria-pressed={currentMode === 'adaptation'}
+      >
+        Adaptation Practice
       </Button>
     </div>
   );

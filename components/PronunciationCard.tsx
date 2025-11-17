@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { PlayIcon } from './icons/PlayIcon';
 import { cn } from '../utils/cn';
@@ -6,8 +7,32 @@ interface PronunciationCardProps {
   phrase: string;
   audioUrl: string | null;
   progressText: string;
-  description?: string; // NEW_FEATURE: Optional description for the practice type.
+  description?: string;
 }
+
+// Helper function to render phrases with various markdown-style markers.
+const renderFormattedPhrase = (phrase: string) => {
+  // Split by bold markers first to handle stress.
+  const parts = phrase.split(/(\*\*.*?\*\*)/g);
+  
+  return parts.map((part, index) => {
+    // If it's a bolded part, render it as a strong element.
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="text-blue-300 font-bold">{part.slice(2, -2)}</strong>;
+    }
+    
+    // BATCH_4: For regular text parts, check for connection markers.
+    // The '~' character is replaced with a visual ligature to show word linking.
+    const connectionParts = part.split('~');
+    return connectionParts.map((text, i) => (
+      <React.Fragment key={`${index}-${i}`}>
+        {text}
+        {i < connectionParts.length - 1 && <span className="text-gray-500 font-sans mx-1">‿</span>}
+      </React.Fragment>
+    ));
+  });
+};
+
 
 export const PronunciationCard: React.FC<PronunciationCardProps> = ({ phrase, audioUrl, progressText, description }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -55,10 +80,9 @@ export const PronunciationCard: React.FC<PronunciationCardProps> = ({ phrase, au
               {progressText}
             </span>
           </div>
-          {/* NEW_FEATURE: Display a description if one is provided (for sound practice). */}
           {description && <p className="text-sm text-gray-400 mb-2">{description}</p>}
           <p className="text-xl sm:text-2xl text-gray-200 font-medium">
-            "{phrase}"
+            "{renderFormattedPhrase(phrase)}"
           </p>
         </div>
         {audioUrl && (
