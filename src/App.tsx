@@ -96,6 +96,9 @@ export default function App() {
   const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const userTranscriptionRef = useRef('');
   const audioChunksRef = useRef<Float32Array[]>([]);
+  // FIX: Add a ref to track the session's active state to prevent race conditions.
+  const isSessionActiveRef = useRef(false);
+
 
   // PERFORMANCE_OPTIMIZATION: Initialize AudioContexts only once on component mount.
   useEffect(() => {
@@ -135,6 +138,8 @@ export default function App() {
   };
   
   const stopRecordingCleanup = () => {
+     // FIX: Set the session active flag to false immediately on cleanup.
+     isSessionActiveRef.current = false;
      if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
@@ -281,6 +286,8 @@ export default function App() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
+      isSessionActiveRef.current = true; // Set active flag before connecting.
+
       sessionPromiseRef.current = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: { 
@@ -289,6 +296,12 @@ export default function App() {
         },
         callbacks: {
           onopen: () => {
+            // FIX: Check if the session is still considered active before proceeding.
+            if (!isSessionActiveRef.current) {
+              console.warn("Ignoring onopen because session is no longer active.");
+              return;
+            }
+
             const currentAudioContext = audioContextRef.current;
             if (!currentAudioContext || !streamRef.current) {
               console.error("AudioContext or MediaStream not available in onopen");
@@ -463,11 +476,16 @@ export default function App() {
           {appState === 'results' && (
              <div className="flex items-center space-x-4">
                 <Button onClick={startRecording} variant="secondary" size="lg">Try Again</Button>
-                {(analysisResult?.score ?? 0) >= 80 ? (
+                
+                {/* On high score, show Next Stage button */}
+                {(analysisResult?.score ?? 0) >= 80 && (
                     <Button onClick={handleNextStage} variant="primary" size="lg">
                         Next Stage →
                     </Button>
-                ) : attemptCount >= 3 && (
+                )}
+
+                {/* If score is low after 3+ attempts, show Skip Stage button */}
+                {(analysisResult?.score ?? 0) < 80 && attemptCount >= 3 && (
                     <Button onClick={handleNextStage} variant="secondary" size="lg">
                         Skip Stage →
                     </Button>

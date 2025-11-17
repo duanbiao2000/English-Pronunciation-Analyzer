@@ -119,7 +119,8 @@ export default function App() {
     setUserTranscription('');
     setAnalysisResult(null);
     setError(null);
-    setAttemptCount(0);
+    // FIX: Removed `setAttemptCount(0)` from here to prevent it from resetting on every "Try Again".
+    // It will now be reset manually only when a new stage/level starts.
 
     if (isNewLevel) {
       setCurrentPhraseIndex(0);
@@ -316,6 +317,7 @@ export default function App() {
     } else {
       setCurrentPhraseIndex(nextIndex);
       resetState();
+      setAttemptCount(0); // FIX: Manually reset attempt count here.
       setAppState('idle');
     }
   };
@@ -328,6 +330,7 @@ export default function App() {
     
     setDifficulty(nextDifficulty);
     resetState(true);
+    setAttemptCount(0); // FIX: Manually reset attempt count here.
     setAppState('idle');
   };
 
@@ -346,6 +349,7 @@ export default function App() {
             onDifficultyChange={(newDifficulty) => {
                 setDifficulty(newDifficulty);
                 resetState(true);
+                setAttemptCount(0); // FIX: Manually reset attempt count here.
             }}
             disabled={appState !== 'idle'}
         />
@@ -423,6 +427,7 @@ export default function App() {
              <div className="flex items-center space-x-4">
                 <Button onClick={() => {
                     resetState(true);
+                    setAttemptCount(0); // FIX: Manually reset attempt count here.
                     setAppState('idle');
                 }} variant="secondary" size="lg">
                     Replay Level
