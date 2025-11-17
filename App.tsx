@@ -1,6 +1,5 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-// FIX: Removed 'LiveSession' as it is not an exported member of '@google/genai'.
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
 import { Header } from './components/Header';
 import { PronunciationCard } from './components/PronunciationCard';
@@ -11,16 +10,14 @@ import { StatusMessage } from './components/StatusMessage';
 import { ScoreDisplay } from './components/ScoreDisplay';
 import { ErrorPatternsCard } from './components/ErrorPatternsCard';
 import { WaveformComparison } from './components/WaveformComparison';
-// NEW_FEATURE: Import the new audioBufferToWavBlob utility.
 import { encode, decode, decodeAudioData, createBlob, createWavBlob, audioBufferToWavBlob } from './utils/audio';
 import type { AnalysisResult } from './types';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-// NEW_FEATURE: Import the new sound effect utility to play rewarding sounds.
 import { playSuccessSound } from './utils/sfx';
-// NEW_FEATURE: Import the new structured phrase libraries for different difficulty levels.
 import { PHRASE_LIBRARIES, Difficulty } from './data/phrases';
-// NEW_FEATURE: Import the new component for selecting game difficulty.
 import { DifficultySelector } from './components/DifficultySelector';
+// NEW_FEATURE: Import the new error screen for missing API key configuration.
+import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 
 
 const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh') => {
@@ -64,16 +61,15 @@ const analysisSchema = {
 
 
 export default function App() {
-  // NEW_FEATURE: Added 'levelComplete' state for the gamified progression.
+  // NEW_FEATURE: Perform a critical check for API key existence at the very top.
+  const isApiKeyConfigured = !!process.env.API_KEY;
+
   const [appState, setAppState] = useState<'idle' | 'recording' | 'confirming' | 'analyzing' | 'results' | 'levelComplete'>('idle');
   const [error, setError] = useState<string | null>(null);
   
-  // NEW_FEATURE: State to manage the selected difficulty level.
   const [difficulty, setDifficulty] = useState<Difficulty>('newbie');
-  // NEW_FEATURE: State to track the current phrase (stage) within the selected difficulty level.
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   
-  // NEW_FEATURE: The target phrase is now dynamically selected from the tiered library.
   const TARGET_PHRASE = PHRASE_LIBRARIES[difficulty].phrases[currentPhraseIndex];
   
   const [language, setLanguage] = useState<'en' | 'zh'>('en');
@@ -82,7 +78,6 @@ export default function App() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [correctAudioUrl, setCorrectAudioUrl] = useState<string | null>(null);
-  // FIX: State to track the number of attempts for the current phrase to enable the skip feature.
   const [attemptCount, setAttemptCount] = useState(0);
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
@@ -94,7 +89,6 @@ export default function App() {
   const userTranscriptionRef = useRef('');
   const audioChunksRef = useRef<Float32Array[]>([]);
 
-  // NEW_FEATURE: A high score triggers celebratory sound effects.
   useEffect(() => {
     if (appState === 'results' && (analysisResult?.score ?? 0) >= 80) {
       playSuccessSound();
@@ -113,10 +107,8 @@ export default function App() {
     setUserTranscription('');
     setAnalysisResult(null);
     setError(null);
-    // FIX: Reset attempt counter whenever state is reset.
     setAttemptCount(0);
 
-    // NEW_FEATURE: If starting a new level, reset the phrase index.
     if (isNewLevel) {
       setCurrentPhraseIndex(0);
     }
@@ -165,17 +157,10 @@ export default function App() {
 
   const handleAnalyze = async () => {
     setAppState('analyzing');
-    // FIX: Increment the attempt counter for the current phrase.
     setAttemptCount(prev => prev + 1);
-
-    if (!process.env.API_KEY) {
-        setError("API_KEY is not configured. Please set the environment variable.");
-        setAppState('results');
-        return;
-    }
     
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
         
         const analysisResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -189,13 +174,20 @@ export default function App() {
         const result: AnalysisResult = JSON.parse(analysisResponse.text);
         setAnalysisResult(result);
 
+        // NEW_FEATURE: Graceful fallback for TTS. If this fails, the app still shows the analysis.
         if (result.correctedPhrase) {
-           await playCorrectedAudio(ai, result.correctedPhrase);
+           try {
+             await playCorrectedAudio(ai, result.correctedPhrase);
+           } catch (ttsError) {
+             console.error("TTS generation failed, but analysis succeeded:", ttsError);
+             // We don't set a user-facing error because the main analysis was successful.
+           }
         }
 
     } catch (err: any) {
-        console.error("Analysis or TTS error:", err);
-        setError(`Failed to analyze pronunciation: ${err.message}`);
+        console.error("Analysis error:", err);
+        // NEW_FEATURE: A more user-friendly and generic error message.
+        setError("Sorry, an error occurred during the analysis. Please check your connection and try again.");
     } finally {
         setAppState('results');
     }
@@ -241,12 +233,10 @@ export default function App() {
     setAppState('recording');
 
     try {
-      if (!process.env.API_KEY) throw new Error("API_KEY environment variable not set.");
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
-      // FIX: Capture stream in a local const to prevent race conditions.
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream; // Still save to ref for cleanup purposes.
+      streamRef.current = stream;
 
       audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -260,7 +250,6 @@ export default function App() {
               console.error("AudioContext not available in onopen");
               return;
             }
-            // FIX: Use the 'stream' const from the closure, which is safer than the ref.
             mediaStreamSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
             scriptProcessorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
 
@@ -299,12 +288,10 @@ export default function App() {
     }
   };
   
-  // NEW_FEATURE: Renamed from handleNextPhrase to better reflect its function as advancing a stage.
   const handleNextStage = () => {
     const currentLevelPhrases = PHRASE_LIBRARIES[difficulty].phrases;
     const nextIndex = currentPhraseIndex + 1;
 
-    // Check if the user has completed all phrases in the current difficulty level.
     if (nextIndex >= currentLevelPhrases.length) {
       setAppState('levelComplete');
     } else {
@@ -314,7 +301,6 @@ export default function App() {
     }
   };
 
-  // NEW_FEATURE: Handles moving to the next difficulty level after completion.
   const handleNextLevel = () => {
     const difficultyLevels = Object.keys(PHRASE_LIBRARIES) as Difficulty[];
     const currentDifficultyIndex = difficultyLevels.indexOf(difficulty);
@@ -322,7 +308,7 @@ export default function App() {
     const nextDifficulty = difficultyLevels[nextDifficultyIndex];
     
     setDifficulty(nextDifficulty);
-    resetState(true); // Reset state and phrase index for the new level
+    resetState(true);
     setAppState('idle');
   };
 
@@ -339,18 +325,21 @@ export default function App() {
     </button>
   );
 
+  // NEW_FEATURE: If the API key is not configured, render a dedicated error screen.
+  if (!isApiKeyConfigured) {
+    return <ApiKeyErrorScreen />;
+  }
 
   return (
     <div className="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
       <div className="w-full max-w-4xl mx-auto flex flex-col flex-grow">
         <Header />
         
-        {/* NEW_FEATURE: Added a selector for game difficulty. Disabled during active states. */}
         <DifficultySelector 
             currentDifficulty={difficulty}
             onDifficultyChange={(newDifficulty) => {
                 setDifficulty(newDifficulty);
-                resetState(true); // Reset phrase index when changing difficulty
+                resetState(true);
             }}
             disabled={appState !== 'idle'}
         />
@@ -364,7 +353,6 @@ export default function App() {
         <main className="flex-grow flex flex-col items-center space-y-8 mt-4">
           {appState !== 'levelComplete' ? (
             <>
-              {/* NEW_FEATURE: Pass current stage and total stages for progress display. */}
               <PronunciationCard
                 phrase={TARGET_PHRASE}
                 audioUrl={correctAudioUrl}
@@ -376,7 +364,6 @@ export default function App() {
                   <div className="md:col-span-2">
                      <TranscriptionDisplay title="You Said" text={userTranscription} recordedAudioUrl={recordedAudioUrl} />
                   </div>
-                  {/* NEW_FEATURE: Pass a boolean to trigger a visual glow effect on high scores. */}
                   <ScoreDisplay
                     score={analysisResult?.score ?? null}
                     isHighScore={(analysisResult?.score ?? 0) >= 80}
@@ -393,7 +380,6 @@ export default function App() {
               </div>
             </>
           ) : (
-            // NEW_FEATURE: Display a "Level Cleared" message upon completing a difficulty level.
             <div className="text-center p-10 bg-gray-800 rounded-2xl shadow-xl">
               <h2 className="text-3xl font-bold text-green-400">Level Cleared!</h2>
               <p className="mt-2 text-gray-300">You've mastered the {PHRASE_LIBRARIES[difficulty].name} level.</p>
@@ -415,19 +401,18 @@ export default function App() {
           {appState === 'results' && (
              <div className="flex items-center space-x-4">
                 <FooterButton onClick={startRecording}>Try Again</FooterButton>
-                {/* FIX: Logic for displaying Next/Skip buttons */}
+                {/* FIX: Logic for displaying Next/Skip buttons. Skip now triggers after 5 attempts. */}
                 {(analysisResult?.score ?? 0) >= 80 ? (
                     <FooterButton onClick={handleNextStage} primary>
                         Next Stage →
                     </FooterButton>
-                ) : attemptCount >= 3 && (
+                ) : attemptCount >= 5 && (
                     <FooterButton onClick={handleNextStage}>
                         Skip Stage →
                     </FooterButton>
                 )}
              </div>
           )}
-          {/* NEW_FEATURE: Footer controls for when a level is completed. */}
           {appState === 'levelComplete' && (
              <div className="flex items-center space-x-4">
                 <FooterButton onClick={() => {
