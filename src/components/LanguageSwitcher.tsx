@@ -1,4 +1,3 @@
-
 import React from 'react';
 // REFACTOR: Import the new reusable Button component.
 import { Button } from './Button';
@@ -11,7 +10,7 @@ interface LanguageSwitcherProps {
 
 /**
  * NEW_FEATURE: A component that allows the user to switch the analysis language
- * between English, Chinese, and Japanese. It is used to control the language of the feedback
+ * between English and Chinese. It is used to control the language of the feedback
  * provided by the Gemini API.
  */
 export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ currentLanguage, onLanguageChange, disabled }) => {

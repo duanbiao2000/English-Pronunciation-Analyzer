@@ -21,10 +21,20 @@ import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 import { Button } from './components/Button';
 
 
-const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh') => {
-  const languageInstruction = language === 'zh'
-    ? '你的所有回答，包括反馈、解释和练习，都必须使用中文。'
-    : 'All of your feedback, explanations, and exercises must be in English.';
+const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh' | 'ja') => {
+  let languageInstruction = '';
+  switch (language) {
+    case 'zh':
+      languageInstruction = '你的所有回答，包括反馈、解释和练习，都必须使用中文。';
+      break;
+    case 'ja':
+      languageInstruction = 'あなたのすべての回答は、フィードバック、説明、練習問題を含め、すべて日本語でなければなりません。';
+      break;
+    case 'en':
+    default:
+      languageInstruction = 'All of your feedback, explanations, and exercises must be in English.';
+      break;
+  }
 
   return `
 You are an expert American English pronunciation coach. Your task is to analyze a user's pronunciation of a given phrase and provide structured feedback.
@@ -72,7 +82,7 @@ export default function App() {
   
   const TARGET_PHRASE = PHRASE_LIBRARIES[difficulty].phrases[currentPhraseIndex];
   
-  const [language, setLanguage] = useState<'en' | 'zh'>('en');
+  const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
   
   const [userTranscription, setUserTranscription] = useState('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);

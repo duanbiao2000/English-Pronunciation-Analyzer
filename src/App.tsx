@@ -18,14 +18,23 @@ import { DifficultySelector } from './components/DifficultySelector';
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 // REFACTOR: Import the new reusable Button component.
 import { Button } from './components/Button';
-// NEW_FEATURE: Import the custom hook for keyboard shortcuts.
-import { useHotkeys } from './hooks/useHotkeys';
 
 
-const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh') => {
-  const languageInstruction = language === 'zh'
-    ? '你的所有回答，包括反馈、解释和练习，都必须使用中文。'
-    : 'All of your feedback, explanations, and exercises must be in English.';
+const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh' | 'ja') => {
+  let languageInstruction = '';
+  switch (language) {
+    case 'zh':
+      languageInstruction = '你的所有回答，包括反馈、解释和练习，都必须使用中文。';
+      break;
+    case 'ja':
+      languageInstruction = 'あなたのすべての回答は、フィードバック、説明、練習問題を含め、すべて日本語でなければなりません。';
+      break;
+    case 'en':
+    default:
+      languageInstruction = 'All of your feedback, explanations, and exercises must be in English.';
+      break;
+  }
+
 
   return `
 You are an expert American English pronunciation coach. Your task is to analyze a user's pronunciation of a given phrase and provide structured feedback.
@@ -61,10 +70,6 @@ const analysisSchema = {
   required: ['score', 'correctedPhrase', 'feedback', 'errorPatterns']
 };
 
-// NEW_FEATURE: Constants for the API retry mechanism.
-const MAX_ANALYSIS_RETRIES = 3;
-const RETRY_DELAY_MS = 1500;
-
 
 export default function App() {
   const isApiKeyConfigured = !!process.env.API_KEY;
@@ -77,15 +82,15 @@ export default function App() {
   
   const TARGET_PHRASE = PHRASE_LIBRARIES[difficulty].phrases[currentPhraseIndex];
   
-  const [language, setLanguage] = useState<'en' | 'zh'>('en');
+  const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
   
   const [userTranscription, setUserTranscription] = useState('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [correctAudioUrl, setCorrectAudioUrl] = useState<string | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
-  // NEW_FEATURE: State to track the number of API call retries.
-  const [retryCount, setRetryCount] = useState(0);
+  // FIX: Add state to track analysis retry attempts.
+  const [analysisRetryCount, setAnalysisRetryCount] = useState(0);
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   // PERFORMANCE_OPTIMIZATION: Create persistent AudioContexts to avoid expensive re-initialization on every recording.
@@ -96,9 +101,6 @@ export default function App() {
   const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const userTranscriptionRef = useRef('');
   const audioChunksRef = useRef<Float32Array[]>([]);
-  // FIX: Add a ref to track the session's active state to prevent race conditions.
-  const isSessionActiveRef = useRef(false);
-
 
   // PERFORMANCE_OPTIMIZATION: Initialize AudioContexts only once on component mount.
   useEffect(() => {
@@ -129,8 +131,10 @@ export default function App() {
     setUserTranscription('');
     setAnalysisResult(null);
     setError(null);
-    // NEW_FEATURE: Reset the retry counter on a full state reset.
-    setRetryCount(0);
+    // FIX: Reset retry count when starting a new attempt.
+    setAnalysisRetryCount(0);
+    // FIX: Removed `setAttemptCount(0)` from here to prevent it from resetting on every "Try Again".
+    // It will now be reset manually only when a new stage/level starts.
 
     if (isNewLevel) {
       setCurrentPhraseIndex(0);
@@ -138,8 +142,6 @@ export default function App() {
   };
   
   const stopRecordingCleanup = () => {
-     // FIX: Set the session active flag to false immediately on cleanup.
-     isSessionActiveRef.current = false;
      if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
@@ -178,16 +180,22 @@ export default function App() {
     setAppState('confirming');
   };
 
+  // FIX: Implement retry logic for API calls to handle transient errors.
   const handleAnalyze = async () => {
     setAppState('analyzing');
     setAttemptCount(prev => prev + 1);
-    setRetryCount(0);
     setError(null);
 
-    // NEW_FEATURE: Implement a retry loop for the API call.
-    for (let attempt = 0; attempt < MAX_ANALYSIS_RETRIES; attempt++) {
+    const maxRetries = 2; // Total 3 attempts
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        setRetryCount(attempt); // Update UI to show current attempt
+        setAnalysisRetryCount(attempt);
+
+        if (attempt > 0) {
+          // Add exponential backoff before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        }
 
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
         
@@ -210,21 +218,13 @@ export default function App() {
              console.error("TTS generation failed, but analysis succeeded:", ttsError);
            }
         }
-        
         setAppState('results');
-        return; // Success, so we exit the function entirely.
-
+        return; // Success! Exit the loop.
       } catch (err: any) {
-        console.error(`Analysis attempt ${attempt + 1} failed:`, err);
-        
-        if (attempt < MAX_ANALYSIS_RETRIES - 1) {
-          // If it's not the last attempt, wait before trying again.
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        } else {
-          // This was the final attempt. Set a specific error message.
-          setError("Analysis failed after multiple attempts. Please check your internet connection and try again.");
+        console.error(`Analysis error (attempt ${attempt + 1}):`, err);
+        if (attempt === maxRetries) {
+          setError("Sorry, an error occurred during the analysis. Please check your connection and try again.");
           setAppState('results');
-          return; // Exit function after final failure.
         }
       }
     }
@@ -286,8 +286,6 @@ export default function App() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      isSessionActiveRef.current = true; // Set active flag before connecting.
-
       sessionPromiseRef.current = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: { 
@@ -296,12 +294,6 @@ export default function App() {
         },
         callbacks: {
           onopen: () => {
-            // FIX: Check if the session is still considered active before proceeding.
-            if (!isSessionActiveRef.current) {
-              console.warn("Ignoring onopen because session is no longer active.");
-              return;
-            }
-
             const currentAudioContext = audioContextRef.current;
             if (!currentAudioContext || !streamRef.current) {
               console.error("AudioContext or MediaStream not available in onopen");
@@ -354,7 +346,7 @@ export default function App() {
     } else {
       setCurrentPhraseIndex(nextIndex);
       resetState();
-      setAttemptCount(0);
+      setAttemptCount(0); // FIX: Manually reset attempt count here.
       setAppState('idle');
     }
   };
@@ -367,36 +359,9 @@ export default function App() {
     
     setDifficulty(nextDifficulty);
     resetState(true);
-    setAttemptCount(0);
+    setAttemptCount(0); // FIX: Manually reset attempt count here.
     setAppState('idle');
   };
-
-  // NEW_FEATURE: Setup keyboard shortcuts.
-  useHotkeys([
-    {
-      key: ' ', // Spacebar
-      callback: () => {
-        if (appState === 'idle') {
-          startRecording();
-        } else if (appState === 'recording') {
-          stopRecording();
-        }
-      },
-    },
-    {
-      key: 'Enter',
-      callback: () => {
-        if (appState === 'confirming') {
-          handleAnalyze();
-        } else if (appState === 'results' && (analysisResult?.score ?? 0) >= 80) {
-          handleNextStage();
-        } else if (appState === 'levelComplete') {
-          handleNextLevel();
-        }
-      },
-    },
-  ]);
-
 
   // REFACTOR: The FooterButton component has been removed and replaced by the generic Button component.
   if (!isApiKeyConfigured) {
@@ -413,7 +378,7 @@ export default function App() {
             onDifficultyChange={(newDifficulty) => {
                 setDifficulty(newDifficulty);
                 resetState(true);
-                setAttemptCount(0);
+                setAttemptCount(0); // FIX: Manually reset attempt count here.
             }}
             disabled={appState !== 'idle'}
         />
@@ -460,7 +425,8 @@ export default function App() {
             </div>
           )}
 
-          <StatusMessage isLoading={appState === 'analyzing'} error={error} retryCount={retryCount} />
+          {/* FIX: Pass the analysisRetryCount to the StatusMessage component. */}
+          <StatusMessage isLoading={appState === 'analyzing'} error={error} retryCount={analysisRetryCount} />
         </main>
 
         <footer className="w-full flex justify-center py-6 sticky bottom-0 bg-gray-900/80 backdrop-blur-sm">
@@ -476,16 +442,11 @@ export default function App() {
           {appState === 'results' && (
              <div className="flex items-center space-x-4">
                 <Button onClick={startRecording} variant="secondary" size="lg">Try Again</Button>
-                
-                {/* On high score, show Next Stage button */}
-                {(analysisResult?.score ?? 0) >= 80 && (
+                {(analysisResult?.score ?? 0) >= 80 ? (
                     <Button onClick={handleNextStage} variant="primary" size="lg">
                         Next Stage →
                     </Button>
-                )}
-
-                {/* If score is low after 3+ attempts, show Skip Stage button */}
-                {(analysisResult?.score ?? 0) < 80 && attemptCount >= 3 && (
+                ) : attemptCount >= 3 && (
                     <Button onClick={handleNextStage} variant="secondary" size="lg">
                         Skip Stage →
                     </Button>
@@ -496,7 +457,7 @@ export default function App() {
              <div className="flex items-center space-x-4">
                 <Button onClick={() => {
                     resetState(true);
-                    setAttemptCount(0);
+                    setAttemptCount(0); // FIX: Manually reset attempt count here.
                     setAppState('idle');
                 }} variant="secondary" size="lg">
                     Replay Level
