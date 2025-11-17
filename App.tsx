@@ -256,7 +256,10 @@ export default function App() {
 
       sessionPromiseRef.current = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-        config: { responseModalities: [Modality.AUDIO], inputAudioTranscription: {} },
+        config: { 
+            responseModalities: [Modality.AUDIO], 
+            inputAudioTranscription: { languageCode: 'en-US' } 
+        },
         callbacks: {
           onopen: () => {
             const currentAudioContext = audioContextRef.current;
@@ -418,7 +421,7 @@ export default function App() {
                     <FooterButton onClick={handleNextStage} primary>
                         Next Stage →
                     </FooterButton>
-                ) : attemptCount >= 5 && (
+                ) : attemptCount >= 3 && (
                     <FooterButton onClick={handleNextStage}>
                         Skip Stage →
                     </FooterButton>
