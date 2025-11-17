@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
 import { Header } from './components/Header';
@@ -19,6 +18,8 @@ import { DifficultySelector } from './components/DifficultySelector';
 import { ApiKeyErrorScreen } from './components/ApiKeyErrorScreen';
 // REFACTOR: Import the new reusable Button component.
 import { Button } from './components/Button';
+// NEW_FEATURE: Import the custom hook for keyboard shortcuts.
+import { useHotkeys } from './hooks/useHotkeys';
 
 
 const ANALYSIS_PROMPT = (userAttempt: string, targetPhrase: string, language: 'en' | 'zh') => {
@@ -60,9 +61,13 @@ const analysisSchema = {
   required: ['score', 'correctedPhrase', 'feedback', 'errorPatterns']
 };
 
+// NEW_FEATURE: Constants for the API retry mechanism.
+const MAX_ANALYSIS_RETRIES = 3;
+const RETRY_DELAY_MS = 1500;
+
 
 export default function App() {
-  const isApiKeyConfigured = !!process.env.API_KEY;
+  const isApiKeyConfigured = !!import.meta.env.VITE_API_KEY;
 
   const [appState, setAppState] = useState<'idle' | 'recording' | 'confirming' | 'analyzing' | 'results' | 'levelComplete'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +84,8 @@ export default function App() {
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [correctAudioUrl, setCorrectAudioUrl] = useState<string | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
+  // NEW_FEATURE: State to track the number of API call retries.
+  const [retryCount, setRetryCount] = useState(0);
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   // PERFORMANCE_OPTIMIZATION: Create persistent AudioContexts to avoid expensive re-initialization on every recording.
@@ -120,6 +127,8 @@ export default function App() {
     setAnalysisResult(null);
     setError(null);
     setAttemptCount(0);
+    // NEW_FEATURE: Reset the retry counter on a full state reset.
+    setRetryCount(0);
 
     if (isNewLevel) {
       setCurrentPhraseIndex(0);
@@ -168,9 +177,15 @@ export default function App() {
   const handleAnalyze = async () => {
     setAppState('analyzing');
     setAttemptCount(prev => prev + 1);
-    
-    try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    setRetryCount(0);
+    setError(null);
+
+    // NEW_FEATURE: Implement a retry loop for the API call.
+    for (let attempt = 0; attempt < MAX_ANALYSIS_RETRIES; attempt++) {
+      try {
+        setRetryCount(attempt); // Update UI to show current attempt
+
+        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
         
         const analysisResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -191,12 +206,23 @@ export default function App() {
              console.error("TTS generation failed, but analysis succeeded:", ttsError);
            }
         }
-
-    } catch (err: any) {
-        console.error("Analysis error:", err);
-        setError("Sorry, an error occurred during the analysis. Please check your connection and try again.");
-    } finally {
+        
         setAppState('results');
+        return; // Success, so we exit the function entirely.
+
+      } catch (err: any) {
+        console.error(`Analysis attempt ${attempt + 1} failed:`, err);
+        
+        if (attempt < MAX_ANALYSIS_RETRIES - 1) {
+          // If it's not the last attempt, wait before trying again.
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        } else {
+          // This was the final attempt. Set a specific error message.
+          setError("Analysis failed after multiple attempts. Please check your internet connection and try again.");
+          setAppState('results');
+          return; // Exit function after final failure.
+        }
+      }
     }
   };
   
@@ -251,7 +277,7 @@ export default function App() {
         throw new Error("Audio contexts failed to initialize.");
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -331,6 +357,33 @@ export default function App() {
     setAppState('idle');
   };
 
+  // NEW_FEATURE: Setup keyboard shortcuts.
+  useHotkeys([
+    {
+      key: ' ', // Spacebar
+      callback: () => {
+        if (appState === 'idle') {
+          startRecording();
+        } else if (appState === 'recording') {
+          stopRecording();
+        }
+      },
+    },
+    {
+      key: 'Enter',
+      callback: () => {
+        if (appState === 'confirming') {
+          handleAnalyze();
+        } else if (appState === 'results' && (analysisResult?.score ?? 0) >= 80) {
+          handleNextStage();
+        } else if (appState === 'levelComplete') {
+          handleNextLevel();
+        }
+      },
+    },
+  ]);
+
+
   // REFACTOR: The FooterButton component has been removed and replaced by the generic Button component.
   if (!isApiKeyConfigured) {
     return <ApiKeyErrorScreen />;
@@ -392,7 +445,7 @@ export default function App() {
             </div>
           )}
 
-          <StatusMessage isLoading={appState === 'analyzing'} error={error} />
+          <StatusMessage isLoading={appState === 'analyzing'} error={error} retryCount={retryCount} />
         </main>
 
         <footer className="w-full flex justify-center py-6 sticky bottom-0 bg-gray-900/80 backdrop-blur-sm">
