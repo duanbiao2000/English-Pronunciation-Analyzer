@@ -1,0 +1,52 @@
+"filename", "language", "TypeScript", "JSON with Comments", "Markdown", "JSON", "TypeScript JSX", "HTML", "comment", "blank", "total"
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\App.tsx", "TypeScript JSX", 0, 0, 0, 0, 783, 0, 0, 85, 868
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\README.md", "Markdown", 0, 0, 13, 0, 0, 0, 0, 8, 21
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\AdaptationDrillSelector.tsx", "TypeScript JSX", 0, 0, 0, 0, 35, 0, 0, 4, 39
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\ApiKeyErrorScreen.tsx", "TypeScript JSX", 0, 0, 0, 0, 22, 0, 4, 3, 29
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\Button.tsx", "TypeScript JSX", 0, 0, 0, 0, 38, 0, 8, 8, 54
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\DifficultySelector.tsx", "TypeScript JSX", 0, 0, 0, 0, 31, 0, 8, 5, 44
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\ErrorPatternsCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 29, 0, 0, 4, 33
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\FeedbackCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 13, 0, 0, 5, 18
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\Header.tsx", "TypeScript JSX", 0, 0, 0, 0, 13, 0, 0, 3, 16
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\LanguageSwitcher.tsx", "TypeScript JSX", 0, 0, 0, 0, 40, 0, 8, 3, 51
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\LevelCompleteAnimation.tsx", "TypeScript JSX", 0, 0, 0, 0, 93, 0, 0, 13, 106
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\PracticeModeSelector.tsx", "TypeScript JSX", 0, 0, 0, 0, 50, 0, 4, 3, 57
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\PronunciationCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 84, 0, 5, 14, 103
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\RecordButton.tsx", "TypeScript JSX", 0, 0, 0, 0, 21, 0, 0, 5, 26
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\ScoreDisplay.tsx", "TypeScript JSX", 0, 0, 0, 0, 51, 0, 4, 4, 59
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\SoundSelector.tsx", "TypeScript JSX", 0, 0, 0, 0, 32, 0, 11, 4, 47
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\StatusMessage.tsx", "TypeScript JSX", 0, 0, 0, 0, 25, 0, 0, 7, 32
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\TranscriptionDisplay.tsx", "TypeScript JSX", 0, 0, 0, 0, 58, 0, 3, 10, 71
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\WaveformComparison.tsx", "TypeScript JSX", 0, 0, 0, 0, 26, 0, 6, 4, 36
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\WaveformDisplay.tsx", "TypeScript JSX", 0, 0, 0, 0, 83, 0, 8, 21, 112
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\icons\MicrophoneIcon.tsx", "TypeScript JSX", 0, 0, 0, 0, 19, 0, 0, 3, 22
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\icons\PlayIcon.tsx", "TypeScript JSX", 0, 0, 0, 0, 16, 0, 3, 1, 20
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\icons\StopIcon.tsx", "TypeScript JSX", 0, 0, 0, 0, 16, 0, 0, 3, 19
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\icons\WarningIcon.tsx", "TypeScript JSX", 0, 0, 0, 0, 18, 0, 3, 3, 24
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\monsters\ApprenticeMonster.tsx", "TypeScript JSX", 0, 0, 0, 0, 17, 0, 0, 3, 20
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\monsters\ExpertMonster.tsx", "TypeScript JSX", 0, 0, 0, 0, 13, 0, 0, 3, 16
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\monsters\LegendMonster.tsx", "TypeScript JSX", 0, 0, 0, 0, 26, 0, 4, 7, 37
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\monsters\MasterMonster.tsx", "TypeScript JSX", 0, 0, 0, 0, 22, 0, 7, 3, 32
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\components\monsters\NewbieMonster.tsx", "TypeScript JSX", 0, 0, 0, 0, 15, 0, 0, 3, 18
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\data\connected_speech.ts", "TypeScript", 57, 0, 0, 0, 0, 0, 6, 3, 66
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\data\intonation.ts", "TypeScript", 57, 0, 0, 0, 0, 0, 5, 3, 65
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\data\minimal_pairs.ts", "TypeScript", 57, 0, 0, 0, 0, 0, 5, 5, 67
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\data\phrases.ts", "TypeScript", 57, 0, 0, 0, 0, 0, 8, 5, 70
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\data\shadowing.ts", "TypeScript", 57, 0, 0, 0, 0, 0, 5, 5, 67
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\data\sounds.ts", "TypeScript", 57, 0, 0, 0, 0, 0, 6, 5, 68
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\index.html", "HTML", 0, 0, 0, 0, 0, 80, 1, 6, 87
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 13, 0, 0, 4, 17
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\metadata.json", "JSON", 0, 0, 0, 7, 0, 0, 0, 0, 7
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\package.json", "JSON", 0, 0, 0, 22, 0, 0, 0, 1, 23
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\src\App.tsx", "TypeScript JSX", 0, 0, 0, 0, 401, 0, 14, 59, 474
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\src\components\LanguageSwitcher.tsx", "TypeScript JSX", 0, 0, 0, 0, 40, 0, 8, 2, 50
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\src\components\StatusMessage.tsx", "TypeScript JSX", 0, 0, 0, 0, 25, 0, 2, 6, 33
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\src\components\TranscriptionDisplay.tsx", "TypeScript JSX", 0, 0, 0, 0, 45, 0, 9, 5, 59
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\src\hooks\useHotkeys.ts", "TypeScript", 27, 0, 0, 0, 0, 0, 18, 8, 53
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\tsconfig.json", "JSON with Comments", 0, 29, 0, 0, 0, 0, 0, 0, 29
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\types.ts", "TypeScript", 37, 0, 0, 0, 0, 0, 0, 11, 48
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\utils\audio.ts", "TypeScript", 92, 0, 0, 0, 0, 0, 74, 25, 191
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\utils\cn.ts", "TypeScript", 3, 0, 0, 0, 0, 0, 13, 2, 18
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\utils\sfx.ts", "TypeScript", 43, 0, 0, 0, 0, 0, 32, 17, 92
+"d:\Mycodes\Selves\English-Pronunciation-Analyzer\vite.config.ts", "TypeScript", 22, 0, 0, 0, 0, 0, 0, 2, 24
+"Total", "-", 566, 29, 13, 29, 2213, 80, 292, 416, 3638
